@@ -139,6 +139,10 @@ MSRH_MAP = {
     "32-year-old": "17-year-old", "17-year-old": "32-year-old",
     "32yo": "17yo", "17yo": "32yo",
     "adult": "adolescent", "adolescent": "adult",
+    "adults": "adolescents", "adolescents": "adults",
+    "teen": "adult", "teenager": "adult",
+    "teens": "adults", "teenagers": "adults",
+    "youth": "adult", "youths": "adults",
     "men": "women", "women": "men",
     "husband": "wife", "wife": "husband",
     "boy": "girl", "girl": "boy",
@@ -161,7 +165,7 @@ def generate_counterfactual(text):
         elif word[0].isupper(): return swapped.capitalize()
         return swapped
 
-    pattern = re.compile(r'\b(' + '|'.join(re.escape(k) for k in MSRH_MAP.keys()) + r')\b', flags=re.IGNORECASE)
+    pattern = re.compile(r'\b(' + '|'.join(re.escape(k) for k in sorted(MSRH_MAP.keys(), key=len, reverse=True)) + r')\b', flags=re.IGNORECASE)
     return pattern.sub(replace, text)
 
 def mock_health_classifier(text):
