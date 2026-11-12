@@ -597,20 +597,37 @@ if "failed_runs" not in st.session_state: st.session_state["failed_runs"] = []
 if "pdf_report_bytes" not in st.session_state: st.session_state["pdf_report_bytes"] = None
 if "processed_df" not in st.session_state: st.session_state["processed_df"] = None
 
-# Ingest Global File Upload
-uploaded_file = st.file_uploader("Upload MSRH Q&A Dataset (CSV format)", type="csv")
-
-tab1, tab2, tab3 = st.tabs(["1. Dataset Evaluation", "2. Bias Mitigation during Training", "3. Clinical Output Fairness"])
+# Ingest Dataset (Upload or Optional Demo)
+col_up1, col_up2 = st.columns([3, 1])
+with col_up1:
+    uploaded_file = st.file_uploader("Upload MSRH Q&A Dataset (CSV format)", type="csv")
+with col_up2:
+    st.write("")
+    st.write("")
+    load_sample = st.button("🧪 Load Sample Demo Dataset", help="Load the included 16-record demonstration dataset to explore the toolkit.")
+    if st.session_state.get("used_sample", False):
+        if st.button("✖️ Clear Demo Data"):
+            st.session_state["used_sample"] = False
+            st.session_state["tabular_metrics"] = None
+            st.session_state["in_proc_metrics"] = None
+            st.session_state["pdf_report_bytes"] = None
+            st.session_state["processed_df"] = None
+            st.rerun()
 
 import os
 default_csv_path = "test_patient_data.csv"
 
 raw_df = None
 if uploaded_file is not None:
+    st.session_state["used_sample"] = False
     raw_df = pd.read_csv(uploaded_file)
-elif os.path.exists(default_csv_path):
-    st.info(f"Automatically loading default test dataset '{default_csv_path}' since no file was uploaded.")
-    raw_df = pd.read_csv(default_csv_path)
+elif load_sample or st.session_state.get("used_sample", False):
+    if os.path.exists(default_csv_path):
+        st.session_state["used_sample"] = True
+        raw_df = pd.read_csv(default_csv_path)
+        st.info("ℹ️ Running in **Demo Mode** using the sample dataset (`test_patient_data.csv`). Upload your real CSV above at any time.")
+
+tab1, tab2, tab3 = st.tabs(["1. Dataset Evaluation", "2. Bias Mitigation during Training", "3. Clinical Output Fairness"])
 
 if raw_df is not None:
     q_col = st.selectbox("Confirm MSRH QUESTION column:", raw_df.columns, index=0)
@@ -1105,6 +1122,16 @@ if raw_df is not None:
                             "complaints_redress": sum([st.session_state.get(k, False) for k in ["chk_pp_cr1", "chk_pp_cr2", "chk_pp_cr3"]]),
                         }
                     )
+else:
+    with tab1:
+        st.header("Phase 1: Dataset Evaluation")
+        st.info("👋 **No dataset loaded yet.**\n\nPlease upload your MSRH Q&A dataset (CSV format) above, or click **'🧪 Load Sample Demo Dataset'** to explore the toolkit with sample patient data.")
+    with tab2:
+        st.header("Phase 2: Bias Mitigation during Training (In-Processing)")
+        st.info("👋 **No dataset loaded yet.**\n\nPlease upload a dataset above to calibrate debiasing parameters and evaluate Fairlearn / IBM AIF360 fairness benchmarks.")
+    with tab3:
+        st.header("Phase 3: Clinical Output Fairness")
+        st.info("👋 **No dataset loaded yet.**\n\nPlease upload a dataset above to run counterfactual pronoun swap tests and verify clinical triage stability.")
 
 # ==========================================================
 # Export Section
@@ -1120,7 +1147,6 @@ if st.session_state["pdf_report_bytes"] is not None:
         file_name="gender_equity_audit_report.pdf",
         mime="application/pdf"
     )
-else:
-    if raw_df is not None:
-        st.markdown("---")
-        st.info("To download the final certificate, please run both the Phase 1 dataset audit and Phase 3 output audit above.")
+elif raw_df is not None:
+    st.markdown("---")
+    st.info("To download the final certificate, please run both the Phase 1 dataset audit and Phase 3 output audit above.")
