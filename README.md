@@ -69,6 +69,8 @@ The toolkit guides users through a comprehensive **three-phase algorithmic lifec
 
 ##  Running the Application
 
+### Option A: Local Python Environment
+
 Launch the Streamlit app with:
 
 ```bash
@@ -79,6 +81,28 @@ The application will start locally and can be accessed in your browser at:
 ```
 http://localhost:8501
 ```
+
+### Option B: Running with Docker
+
+1. **Using Docker Compose (Recommended):**
+   ```bash
+   docker compose up --build -d
+   ```
+   To stop the container:
+   ```bash
+   docker compose down
+   ```
+
+2. **Using Docker CLI directly:**
+   ```bash
+   # Build image
+   docker build -t hash-gender-toolkit .
+
+   # Run container
+   docker run -d -p 8501:8501 --name hash-gender-toolkit hash-gender-toolkit
+   ```
+
+Access the application in your browser at `http://localhost:8501`.
 
 ---
 
