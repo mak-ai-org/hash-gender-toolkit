@@ -15,8 +15,9 @@ The toolkit guides users through a comprehensive **three-phase algorithmic lifec
 - **Dynamic Bias Justifications**: Generates human-readable statistical justifications and actionable recommendations for detected disparities.
 
 ### 2. Phase 2: Bias Mitigation during Training (In-processing Audit)
-- **Feature Projection Penalty**: Tunes a penalty weight ($\lambda$) to suppress gender-correlated subspace directions in text representations (TF-IDF).
-- **Accuracy vs. Leakage Trade-off**: Real-time evaluation balancing diagnostic classification accuracy against demographic information leakage.
+- **Feature Projection Penalty**: Tunes a penalty weight ($\lambda$) to project clinical text representations onto the nullspace of demographic bias directions.
+- **Standardized Fairness Benchmarks**: Real-time evaluation aligned with Fairlearn and IBM AI Fairness 360 (AIF360), tracking Model Accuracy, Demographic Parity Difference, Disparate Impact Ratio (EEOC 80% Rule), Equal Opportunity Difference (Sensitivity Parity), and Gender Feature Leakage.
+- **Pareto Frontier Analysis**: Traces the accuracy vs. equity trade-off across penalty values to establish an optimal operating point for clinical triage.
 - **Config Persistence**: Saves calibrated training hyperparameters directly into the audit pipeline.
 
 ### 3. Phase 3: Clinical Output Fairness (Post-processing Audit)
