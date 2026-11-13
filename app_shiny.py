@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 import os
 import re
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import chi2_contingency
@@ -862,6 +865,7 @@ def server(input, output, session):
             basis_alert,
             ui.HTML(rep.to_html(classes="table table-sm table-striped table-hover align-middle", index=False)),
             ui.p("Small groups are not evidence of fairness. They are evidence of limited measurement power.", class_="text-muted small"),
+            ui.output_plot("stage2_chart", height="320px"),
             ui.div(
                 ui.tags.strong("AIF360-inspired response-completeness diagnostic: "),
                 f"chi2 = {gap['chi2']}, p = {gap['p_value']} - ",
@@ -879,6 +883,22 @@ def server(input, output, session):
                 ui.div("Data audit snapshot saved.", class_="alert alert-success py-2 mt-2 mb-0") if saved_snap is not None else None,
             ),
         )
+
+    @render.plot
+    def stage2_chart():
+        df = prepared_df()
+        if df is None:
+            return None
+        rep = representation_table(df).set_index("Gender_Group")
+        fig, ax = plt.subplots(figsize=(8, 3.6))
+        rep[["Detailed_Response_Rate", "Safety_Netting_Rate"]].plot(kind="bar", ax=ax)
+        ax.set_title("Detailed Response & Safety-Netting Rate by Gender Group (%)")
+        ax.set_xlabel("Gender Group")
+        ax.set_ylabel("Rate (%)")
+        ax.tick_params(axis="x", rotation=15)
+        ax.grid(axis="y", alpha=0.3)
+        fig.tight_layout()
+        return fig
 
     @reactive.effect
     @reactive.event(input.save_stage2_ev)
@@ -968,6 +988,7 @@ def server(input, output, session):
         mit_saved = mitigation_results.get()
         return ui.div(
             ui.HTML(table.to_html(classes="table table-sm table-striped align-middle", index=False)),
+            ui.output_plot("stage4_chart", height="320px"),
             ui.div(
                 "A mitigation is not automatically acceptable because one fairness metric improves. Review false negatives, calibration, clinical utility, subgroup size, and operational feasibility.",
                 class_="alert alert-warning mt-2",
@@ -977,6 +998,31 @@ def server(input, output, session):
             ui.input_action_button("save_mitigation", "Save mitigation review", class_="btn-primary mt-1"),
             ui.div(f"Saved mitigation review for '{mit_saved['selected']}'. This does not approve deployment.", class_="alert alert-success mt-2 mb-0") if mit_saved else None,
         )
+
+    @render.plot
+    def stage4_chart():
+        df = prepared_df()
+        if df is None:
+            return None
+        y_true = build_binary_outcome(df)
+        variants = mitigation_variants(df)
+        rows = []
+        for name, pred in variants.items():
+            gm = paired_group_metrics(y_true, pred, df["Gender_Group"])
+            summary = fairness_summary(gm)
+            accuracy = float((np.asarray(y_true) == pred).mean())
+            rows.append({"Variant": name, "Accuracy": accuracy, **summary})
+        table = pd.DataFrame(rows).set_index("Variant")
+        fig, ax = plt.subplots(figsize=(8, 3.6))
+        table[["Accuracy", "demographic_parity_difference", "false_negative_rate_gap"]].plot(
+            kind="line", marker="o", ax=ax
+        )
+        ax.set_title("Mitigation Utility vs. Fairness Trade-offs")
+        ax.set_xlabel("Variant")
+        ax.set_ylabel("Metric Value")
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+        return fig
 
     @reactive.effect
     @reactive.event(input.save_mitigation)
