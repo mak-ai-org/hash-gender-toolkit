@@ -859,8 +859,6 @@ def server(input, output, session):
         rep = representation_table(df)
         gap = chi_square_gap(df, "Gender_Group", "Detailed_Response")
 
-        ev = data_evidence.get()
-        saved_snap = data_results.get()
         return ui.div(
             basis_alert,
             ui.HTML(rep.to_html(classes="table table-sm table-striped table-hover align-middle", index=False)),
@@ -876,13 +874,26 @@ def server(input, output, session):
                 ui.tags.summary("UNESCO data, participation, and provenance checklist", class_="fw-semibold mb-2"),
                 ui.input_checkbox_group("data_checks", None, choices=DATA_PROVENANCE_ITEMS, width="100%"),
                 ui.input_action_button("save_stage2_ev", "Save Stage 2 evidence", class_="btn-primary btn-sm mt-1"),
-                ui.div(f"Stage 2 evidence saved ({sum(ev.values())}/{len(DATA_PROVENANCE_ITEMS)} items).", class_="alert alert-success py-2 mt-2 mb-0") if ev else None,
+                ui.output_ui("stage2_ev_status"),
             ),
             ui.div(
                 ui.input_action_button("save_data_snapshot", "Save data audit snapshot", class_="btn-primary mt-3"),
-                ui.div("Data audit snapshot saved.", class_="alert alert-success py-2 mt-2 mb-0") if saved_snap is not None else None,
+                ui.output_ui("stage2_snap_status"),
             ),
         )
+
+    @render.ui
+    def stage2_ev_status():
+        ev = data_evidence.get()
+        if not ev:
+            return None
+        return ui.div(f"Stage 2 evidence saved ({sum(ev.values())}/{len(DATA_PROVENANCE_ITEMS)} items).", class_="alert alert-success py-2 mt-2 mb-0")
+
+    @render.ui
+    def stage2_snap_status():
+        if data_results.get() is None:
+            return None
+        return ui.div("Data audit snapshot saved.", class_="alert alert-success py-2 mt-2 mb-0")
 
     @render.plot
     def stage2_chart():
@@ -985,7 +996,6 @@ def server(input, output, session):
             accuracy = float((np.asarray(y_true) == pred).mean())
             rows.append({"Variant": name, "Accuracy": accuracy, **summary})
         table = pd.DataFrame(rows).round(4)
-        mit_saved = mitigation_results.get()
         return ui.div(
             ui.HTML(table.to_html(classes="table table-sm table-striped align-middle", index=False)),
             ui.output_plot("stage4_chart", height="320px"),
@@ -996,8 +1006,15 @@ def server(input, output, session):
             ui.input_select("selected_variant", "Select variant for documented human review", choices=list(variants.keys())),
             ui.input_text_area("mitigation_rationale", "Document mitigation rationale, trade-offs, and clinical review", width="100%"),
             ui.input_action_button("save_mitigation", "Save mitigation review", class_="btn-primary mt-1"),
-            ui.div(f"Saved mitigation review for '{mit_saved['selected']}'. This does not approve deployment.", class_="alert alert-success mt-2 mb-0") if mit_saved else None,
+            ui.output_ui("stage4_status"),
         )
+
+    @render.ui
+    def stage4_status():
+        mit_saved = mitigation_results.get()
+        if not mit_saved:
+            return None
+        return ui.div(f"Saved mitigation review for '{mit_saved['selected']}'. This does not approve deployment.", class_="alert alert-success mt-2 mb-0")
 
     @render.plot
     def stage4_chart():
