@@ -345,7 +345,7 @@ class AuditPDF(FPDF if FPDF else object):
             self.set_font("Helvetica", "B", 14)
             self.cell(0, 8, "MSRH GENDER BIAS MEASUREMENT TOOL", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
             self.set_font("Helvetica", "I", 8)
-            self.cell(0, 5, "UNESCO Principle 10 / Fairlearn-inspired / AIF360-inspired", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+            self.cell(0, 5, "Inspired by UNESCO Principle 10, Fairlearn, and IBM AI Fairness 360", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
             self.ln(4)
 
         def footer(self):
@@ -367,6 +367,25 @@ def pdf_safe_text(value):
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
+def _pdf_section_table(pdf, title, headers, rows, col_widths=None):
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, pdf_safe_text(title), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    if not rows:
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.cell(0, 5, "No evidence recorded for this stage yet.", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        return
+    pdf.set_font("Helvetica", "", 8)
+    with pdf.table(col_widths=col_widths, text_align="LEFT", line_height=4.5, padding=1.5) as table:
+        hdr = table.row()
+        for h in headers:
+            hdr.cell(pdf_safe_text(h))
+        for r in rows:
+            row = table.row()
+            for cell in r:
+                row.cell(pdf_safe_text(cell))
+
+
 def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     if FPDF is None:
         return None
@@ -376,36 +395,96 @@ def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     pdf.set_font("Helvetica", "", 9)
     pdf.multi_cell(
         0, 5,
-        f"Generated: {datetime.now(timezone.utc).isoformat()}\n"
-        "This report is an evidence summary, not clinical validation, regulatory approval, or official Fairlearn/AIF360 certification."
+        f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n"
+        "This report is inspired by UNESCO Principle 10, Fairlearn, and IBM AI Fairness 360. "
+        "It supports human governance review and is not a clinical or regulatory certification."
     )
     pdf.ln(3)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "UNESCO fairness and gender lens", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.multi_cell(0, 5, GENDER_EQUITY_PRINCIPLE)
-    pdf.ln(3)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "Deployment Decision", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "Guiding Equity Lens (UNESCO Principle 10)", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.multi_cell(0, 4.5, pdf_safe_text(GENDER_EQUITY_PRINCIPLE))
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "Deployment Decision", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("Helvetica", "", 9)
     status = "REVIEW REQUIRED - deployment blocked pending evidence, mitigation, and retest" if blockers else "EVIDENCE COMPLETE FOR HUMAN GOVERNANCE REVIEW"
     pdf.multi_cell(0, 5, pdf_safe_text(status), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     if blockers:
-        pdf.ln(2)
-        pdf.multi_cell(0, 5, pdf_safe_text("Open blockers:\n- " + "\n- ".join(blockers)), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    for title, content in [
-        ("Stage 1 - Scope", scope_ev),
-        ("Stage 2 - Data evidence", data_ev),
-        ("Stage 3 - Model results", model_res),
-        ("Stage 4 - Mitigation", mit_res),
-        ("Stage 5 - Output audit", out_res),
-        ("Stage 6 - Governance", gov_ev),
-    ]:
-        pdf.ln(3)
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, pdf_safe_text(title), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-        pdf.set_font("Helvetica", "", 8)
-        pdf.multi_cell(0, 4, pdf_safe_text(str(content)[:5000]), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        _pdf_section_table(pdf, "Open Blockers", ["#", "Blocker"], [[str(i), b] for i, b in enumerate(blockers, 1)], col_widths=(12, 178))
+
+    # Stage 1 - Scope (structured table)
+    scope_rows = []
+    if scope_ev:
+        scope_rows = [
+            ["Intended purpose", scope_ev.get("purpose") or "Not provided"],
+            ["Intended beneficiaries", scope_ev.get("beneficiaries") or "Not provided"],
+            ["Prohibited uses", scope_ev.get("prohibited") or "Not provided"],
+            ["Gender & intersectional risks", scope_ev.get("gender_risks") or "Not provided"],
+            ["Human final determination", "Yes" if scope_ev.get("human_decision") else "No"],
+            ["Gender impact assessment", "Yes" if scope_ev.get("gender_impact") else "No"],
+            ["Community participation", "Yes" if scope_ev.get("community") else "No"],
+        ]
+    _pdf_section_table(pdf, "Stage 1 - Scope", ["Field", "Recorded Evidence"], scope_rows, col_widths=(55, 135))
+
+    # Stage 2 - Data Representation
+    data_rows = []
+    if isinstance(data_ev, pd.DataFrame) and not data_ev.empty:
+        for _, r in data_ev.iterrows():
+            data_rows.append([
+                r.get("Gender_Group", ""),
+                r.get("Sample_Count", ""),
+                r.get("Mean_Answer_Words", ""),
+                f"{r.get('Detailed_Response_Rate', '')}%",
+                f"{r.get('Safety_Netting_Rate', '')}%",
+                f"{r.get('Stigmatizing_Term_Rate', '')}%",
+            ])
+    _pdf_section_table(
+        pdf,
+        "Stage 2 - Data Representation",
+        ["Gender Group", "Count", "Mean Words", "Detailed", "Safety-Net", "Stigma"],
+        data_rows,
+        col_widths=(55, 22, 27, 28, 29, 29),
+    )
+
+    # Stage 3 - Model Fairness
+    model_rows = []
+    if model_res and model_res.get("summary"):
+        mt = render_metric_table(model_res["summary"])
+        model_rows = [[r["Metric"], r["Value"], r["Screening rule"], r["Status"]] for _, r in mt.iterrows()]
+    _pdf_section_table(
+        pdf,
+        "Stage 3 - Model Fairness (Fairlearn / IBM AIF360-inspired)",
+        ["Metric", "Value", "Screening Rule", "Status"],
+        model_rows,
+        col_widths=(62, 24, 58, 46),
+    )
+
+    # Stage 4 - Mitigation & Trade-offs
+    mit_rows = []
+    if mit_res:
+        mit_rows.append(["Selected variant", mit_res.get("selected") or "Not provided"])
+        mit_rows.append(["Documented rationale", mit_res.get("rationale") or "Not provided"])
+    _pdf_section_table(pdf, "Stage 4 - Mitigation & Trade-offs", ["Item", "Recorded Evidence"], mit_rows, col_widths=(55, 135))
+
+    # Stage 5 - Output Equity
+    out_rows = []
+    if out_res:
+        rate = out_res.get("consistency", 0.0)
+        n_recs = len(out_res["records"]) if isinstance(out_res.get("records"), pd.DataFrame) else "N/A"
+        out_rows = [
+            ["Pronoun-only decision consistency", f"{rate:.1%}"],
+            ["Records evaluated", str(n_recs)],
+            ["Screening status", "PASS" if rate >= THRESHOLDS["pronoun_consistency"] else "REVIEW REQUIRED"],
+        ]
+    _pdf_section_table(pdf, "Stage 5 - Output Equity", ["Check", "Result"], out_rows, col_widths=(80, 110))
+
+    # Stage 6 - Governance & Monitoring
+    gov_rows = []
+    if gov_ev:
+        gov_rows = [[ctrl, "Documented" if ok else "Pending"] for ctrl, ok in gov_ev.items()]
+    _pdf_section_table(pdf, "Stage 6 - Governance & Monitoring", ["Control", "Status"], gov_rows, col_widths=(155, 35))
+
     return bytes(pdf.output())
 
 
