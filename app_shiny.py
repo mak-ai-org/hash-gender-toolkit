@@ -29,14 +29,14 @@ HASH_LOGO_URL = "https://hash.theacademy.co.ug/wp-content/themes/openstrap/image
 
 HASH_PARTNERS = [
     {
-        "name": "Infectious Diseases Institute (IDI)",
-        "url": "https://idi.mak.ac.ug/",
-        "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/IDI.jpg",
-    },
-    {
         "name": "Mak-AI",
         "url": "https://air.ug/",
         "logo": "https://air.ug/wp-content/uploads/2025/06/Mak-AI-06.png",
+    },
+    {
+        "name": "Infectious Diseases Institute (IDI)",
+        "url": "https://idi.mak.ac.ug/",
+        "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/IDI.jpg",
     },
 ]
 
