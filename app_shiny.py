@@ -861,8 +861,8 @@ def server(input, output, session):
 
         return ui.div(
             basis_alert,
-            ui.HTML(rep.to_html(classes="table table-sm table-striped table-hover align-middle", index=False)),
-            ui.p("Small groups are not evidence of fairness. They are evidence of limited measurement power.", class_="text-muted small"),
+            ui.output_data_frame("stage2_table"),
+            ui.p("Small groups are not evidence of fairness. They are evidence of limited measurement power.", class_="text-muted small mt-2"),
             ui.output_plot("stage2_chart", height="320px"),
             ui.div(
                 ui.tags.strong("AIF360-inspired response-completeness diagnostic: "),
@@ -894,6 +894,13 @@ def server(input, output, session):
         if data_results.get() is None:
             return None
         return ui.div("Data audit snapshot saved.", class_="alert alert-success py-2 mt-2 mb-0")
+
+    @render.data_frame
+    def stage2_table():
+        df = prepared_df()
+        if df is None:
+            return None
+        return render.DataGrid(representation_table(df), width="100%")
 
     @render.plot
     def stage2_chart():
@@ -943,9 +950,9 @@ def server(input, output, session):
             metric_tbl = render_metric_table(res["summary"])
             blocks.extend([
                 ui.h5("Disaggregated performance"),
-                ui.HTML(res["group_metrics"].round(4).to_html(classes="table table-sm table-striped align-middle", index=False)),
+                ui.output_data_frame("stage3_group_table"),
                 ui.h5("Fairness metric dashboard", class_="mt-3"),
-                ui.HTML(metric_tbl.to_html(classes="table table-sm table-bordered align-middle", index=False)),
+                ui.output_data_frame("stage3_metric_table"),
                 ui.tags.details(
                     ui.tags.summary("IBM AIF360 & Fairlearn Fairness Metric Definitions", class_="fw-semibold mt-2 mb-2"),
                     ui.tags.ul(
@@ -965,6 +972,20 @@ def server(input, output, session):
             if any(v == "REVIEW REQUIRED" for v in metric_tbl["Status"]):
                 blocks.append(ui.div("Baseline model: review required. Do not interpret aggregate accuracy as evidence of gender fairness.", class_="alert alert-danger"))
         return ui.div(*blocks)
+
+    @render.data_frame
+    def stage3_group_table():
+        res = model_results.get()
+        if res is None:
+            return None
+        return render.DataGrid(res["group_metrics"].round(4), width="100%")
+
+    @render.data_frame
+    def stage3_metric_table():
+        res = model_results.get()
+        if res is None:
+            return None
+        return render.DataGrid(render_metric_table(res["summary"]), width="100%")
 
     @reactive.effect
     @reactive.event(input.run_model)
@@ -997,7 +1018,7 @@ def server(input, output, session):
             rows.append({"Variant": name, "Accuracy": accuracy, **summary})
         table = pd.DataFrame(rows).round(4)
         return ui.div(
-            ui.HTML(table.to_html(classes="table table-sm table-striped align-middle", index=False)),
+            ui.output_data_frame("stage4_table"),
             ui.output_plot("stage4_chart", height="320px"),
             ui.div(
                 "A mitigation is not automatically acceptable because one fairness metric improves. Review false negatives, calibration, clinical utility, subgroup size, and operational feasibility.",
@@ -1015,6 +1036,21 @@ def server(input, output, session):
         if not mit_saved:
             return None
         return ui.div(f"Saved mitigation review for '{mit_saved['selected']}'. This does not approve deployment.", class_="alert alert-success mt-2 mb-0")
+
+    @render.data_frame
+    def stage4_table():
+        df = prepared_df()
+        if df is None:
+            return None
+        y_true = build_binary_outcome(df)
+        variants = mitigation_variants(df)
+        rows = []
+        for name, pred in variants.items():
+            gm = paired_group_metrics(y_true, pred, df["Gender_Group"])
+            summary = fairness_summary(gm)
+            accuracy = float((np.asarray(y_true) == pred).mean())
+            rows.append({"Variant": name, "Accuracy": accuracy, **summary})
+        return render.DataGrid(pd.DataFrame(rows).round(4), width="100%")
 
     @render.plot
     def stage4_chart():
@@ -1085,9 +1121,16 @@ def server(input, output, session):
                 blocks.append(ui.div("Review required: pronoun-only changes altered decisions.", class_="alert alert-danger mt-2"))
             else:
                 blocks.append(ui.div("No decision change observed in the pronoun-only sample; continue with clinical safety and intersectional tests.", class_="alert alert-success mt-2"))
-            blocks.append(ui.HTML(res["records"].to_html(classes="table table-sm table-striped align-middle", index=False)))
+            blocks.append(ui.output_data_frame("stage5_table"))
             blocks.append(ui.div("For MSRH deployment, add validated tests for missed emergencies, unsafe advice, stigmatizing language, safeguarding, adolescent confidentiality, and referral equity.", class_="alert alert-warning mt-2"))
         return ui.div(*blocks)
+
+    @render.data_frame
+    def stage5_table():
+        res = output_results.get()
+        if res is None:
+            return None
+        return render.DataGrid(res["records"], width="100%")
 
     @reactive.effect
     @reactive.event(input.run_output)
