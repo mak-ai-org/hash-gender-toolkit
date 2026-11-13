@@ -418,6 +418,9 @@ def fairness_summary(group_metrics):
     gm = group_metrics.dropna(subset=["Selection_Rate"])
     if gm.empty:
         return {}
+    gm_known = gm[gm["Group"] != "Unknown / not reported"]
+    if len(gm_known) >= 2:
+        gm = gm_known
     selection = gm["Selection_Rate"]
     tpr = gm["TPR_Recall"].dropna()
     fpr = gm["FPR"].dropna()
@@ -1052,6 +1055,12 @@ if raw_df is not None:
         outcome_options = ["(question-text urgency proxy)"] + list(raw_df.columns)
         outcome_choice = st.selectbox("Validated binary outcome column (optional):", outcome_options, key="model_outcome")
         outcome_col = None if outcome_choice == "(question-text urgency proxy)" else outcome_choice
+
+        if outcome_col is not None and prepared_df[outcome_col].nunique(dropna=True) != 2:
+            st.warning(
+                f"Column '{outcome_col}' is not binary ({prepared_df[outcome_col].nunique(dropna=True)} unique values). "
+                "Falling back to the question-text urgency proxy."
+            )
 
         y_true = build_binary_outcome(prepared_df, outcome_col)
         x_lower = prepared_df["Question_Text"].str.lower()
