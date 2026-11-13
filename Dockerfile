@@ -28,11 +28,11 @@ COPY . .
 # Expose default Streamlit web port
 EXPOSE 8501
 
-# Healthcheck to verify the Streamlit service is responding
+# Healthcheck to verify the PyShiny service is responding
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl --fail http://localhost:8501/_stcore/health || exit 1
+    CMD curl --fail http://localhost:8501/ || exit 1
 
-# Launch the Streamlit application
-ENTRYPOINT ["streamlit", "run", "appv2.py"]
-CMD ["--server.port=8501", "--server.address=0.0.0.0"]
+# Launch the PyShiny application
+ENTRYPOINT ["shiny", "run"]
+CMD ["--host", "0.0.0.0", "--port", "8501", "app_shiny.py"]
 
