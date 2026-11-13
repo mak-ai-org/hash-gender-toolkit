@@ -861,7 +861,7 @@ def server(input, output, session):
 
         return ui.div(
             basis_alert,
-            ui.output_data_frame("stage2_table"),
+            ui.div(ui.output_data_frame("stage2_table"), class_="border rounded mb-2"),
             ui.p("Small groups are not evidence of fairness. They are evidence of limited measurement power.", class_="text-muted small mt-2"),
             ui.output_plot("stage2_chart", height="320px"),
             ui.div(
@@ -900,7 +900,7 @@ def server(input, output, session):
         df = prepared_df()
         if df is None:
             return None
-        return render.DataGrid(representation_table(df), width="100%")
+        return render.DataGrid(representation_table(df), width="100%", summary=False)
 
     @render.plot
     def stage2_chart():
@@ -950,9 +950,9 @@ def server(input, output, session):
             metric_tbl = render_metric_table(res["summary"])
             blocks.extend([
                 ui.h5("Disaggregated performance"),
-                ui.output_data_frame("stage3_group_table"),
+                ui.div(ui.output_data_frame("stage3_group_table"), class_="border rounded mb-2"),
                 ui.h5("Fairness metric dashboard", class_="mt-3"),
-                ui.output_data_frame("stage3_metric_table"),
+                ui.div(ui.output_data_frame("stage3_metric_table"), class_="border rounded mb-2"),
                 ui.tags.details(
                     ui.tags.summary("IBM AIF360 & Fairlearn Fairness Metric Definitions", class_="fw-semibold mt-2 mb-2"),
                     ui.tags.ul(
@@ -978,14 +978,14 @@ def server(input, output, session):
         res = model_results.get()
         if res is None:
             return None
-        return render.DataGrid(res["group_metrics"].round(4), width="100%")
+        return render.DataGrid(res["group_metrics"].round(4), width="100%", summary=False)
 
     @render.data_frame
     def stage3_metric_table():
         res = model_results.get()
         if res is None:
             return None
-        return render.DataGrid(render_metric_table(res["summary"]), width="100%")
+        return render.DataGrid(render_metric_table(res["summary"]), width="100%", summary=False)
 
     @reactive.effect
     @reactive.event(input.run_model)
@@ -1018,7 +1018,7 @@ def server(input, output, session):
             rows.append({"Variant": name, "Accuracy": accuracy, **summary})
         table = pd.DataFrame(rows).round(4)
         return ui.div(
-            ui.output_data_frame("stage4_table"),
+            ui.div(ui.output_data_frame("stage4_table"), class_="border rounded mb-3"),
             ui.output_plot("stage4_chart", height="320px"),
             ui.div(
                 "A mitigation is not automatically acceptable because one fairness metric improves. Review false negatives, calibration, clinical utility, subgroup size, and operational feasibility.",
@@ -1050,7 +1050,7 @@ def server(input, output, session):
             summary = fairness_summary(gm)
             accuracy = float((np.asarray(y_true) == pred).mean())
             rows.append({"Variant": name, "Accuracy": accuracy, **summary})
-        return render.DataGrid(pd.DataFrame(rows).round(4), width="100%")
+        return render.DataGrid(pd.DataFrame(rows).round(4), width="100%", summary=False)
 
     @render.plot
     def stage4_chart():
@@ -1121,7 +1121,7 @@ def server(input, output, session):
                 blocks.append(ui.div("Review required: pronoun-only changes altered decisions.", class_="alert alert-danger mt-2"))
             else:
                 blocks.append(ui.div("No decision change observed in the pronoun-only sample; continue with clinical safety and intersectional tests.", class_="alert alert-success mt-2"))
-            blocks.append(ui.output_data_frame("stage5_table"))
+            blocks.append(ui.div(ui.output_data_frame("stage5_table"), class_="border rounded mt-2 mb-2"))
             blocks.append(ui.div("For MSRH deployment, add validated tests for missed emergencies, unsafe advice, stigmatizing language, safeguarding, adolescent confidentiality, and referral equity.", class_="alert alert-warning mt-2"))
         return ui.div(*blocks)
 
@@ -1130,7 +1130,7 @@ def server(input, output, session):
         res = output_results.get()
         if res is None:
             return None
-        return render.DataGrid(res["records"], width="100%")
+        return render.DataGrid(res["records"], width="100%", summary=False)
 
     @reactive.effect
     @reactive.event(input.run_output)
