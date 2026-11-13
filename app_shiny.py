@@ -50,6 +50,15 @@ GENDER_EQUITY_PRINCIPLE = (
     "vulnerable groups, and provide clear mechanisms for oversight and remedy."
 )
 
+UNESCO_GENDER_REQUIREMENTS = [
+    "Define a transversal gender perspective in the ethical impact assessment.",
+    "Protect the rights, safety, integrity, dignity, and agency of women and girls.",
+    "Identify and proactively redress gender stereotypes and discriminatory bias.",
+    "Include affected women, girls, and gender-diverse communities in review.",
+    "Consider intersectional and access divides: age, language, disability, geography, and socioeconomic position.",
+    "Provide effective complaint, remedy, escalation, rollback, and accountability mechanisms.",
+]
+
 DATA_PROVENANCE_ITEMS = [
     "Collection purpose, consent, provenance, and permitted secondary use are documented.",
     "Representation is compared with the intended deployment population.",
@@ -167,43 +176,158 @@ def clinical_category(text):
     return "General MSRH"
 
 
+def extract_age(question: str):
+    """Extract an explicit numeric age from question text."""
+    text = safe_text(question).lower()
+    patterns = [
+        r"\b(\d{1,3})\s*(?:yo|y/o|years?\s*old)\b",
+        r"\b(\d{1,3})[- ]year[- ]old\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            age = int(match.group(1))
+            if 0 <= age <= 120:
+                return age
+    return None
+
+
+def derive_life_stage(question: str):
+    """Derive life stage categories: Pregnancy, Lactation/postpartum, Adolescence, General adult."""
+    text = safe_text(question).lower()
+    if re.search(r"\b(pregnan|expecting|trimester|gestational)\b", text):
+        return "Pregnancy"
+    if re.search(r"\b(lactat|breastfeed|postpartum|nursing)\b", text):
+        return "Lactation / postpartum"
+    if re.search(r"\b(teen|teenager|adolescent|youth|young|17yo|16yo|17-year-old|16-year-old)\b", text):
+        return "Adolescence"
+    return "General adult"
+
+
+def derive_health_topic(question: str):
+    """Identify key MSRH clinical topics."""
+    text = safe_text(question).lower()
+    if "gonorrhea" in text:
+        return "Gonorrhea exposure"
+    if "syphilis" in text:
+        return "Syphilis exposure"
+    if "chlamydia" in text:
+        return "Chlamydia exposure"
+    if re.search(r"\bhiv\b", text):
+        return "HIV exposure"
+    if re.search(r"\b(pelvic|cramp|cramps|dysmenorrhea|period)\b", text):
+        return "Pelvic pain / cramps"
+    if re.search(r"\b(sti|std|sexual health)\b", text):
+        return "Sexual health"
+    return "Other MSRH"
+
+
+def extract_answer_audit_flags(answer: str):
+    """Create transparent rule-based answer indicators for clinical and equity audits."""
+    text = safe_text(answer).lower()
+    return {
+        "Has_Testing_Screening": int(bool(re.search(
+            r"\b(test|testing|tested|screen|screening|screenings|diagnostic)\b", text
+        ))),
+        "Has_Emergency_Escalation": int(bool(re.search(
+            r"\b(emergency|emergency room|right now|immediately|urgent|urgently)\b", text
+        ))),
+        "Has_Human_Clinician_Referral": int(bool(re.search(
+            r"\b(clinic|clinician|doctor|physician|counselor|health worker|hospital)\b", text
+        ))),
+        "Has_Guardian_Only_Language": int(bool(re.search(
+            r"\b(guardian|parent|ask a parent)\b", text
+        ))),
+        "Has_Safety_Netting": int(bool(re.search(
+            r"\b(seek care|seek medical|emergency|urgent|right now|immediately|hospital|monitor|return if|call emergency|health worker)\b", text
+        ))),
+        "Has_Stigmatizing_Terms": int(bool(re.search(
+            r"\b(shame|shameful|dirty|promiscuous|immoral|bad woman|deserve|blame)\b", text
+        ))),
+    }
+
+
 def prepare_dataset(df, question_col, answer_col, gender_col=None, age_col=None, language_col=None):
     out = df.copy()
     out["Question_Text"] = out[question_col].map(safe_text)
     out["Answer_Text"] = out[answer_col].map(safe_text)
+
+    # Gender
     if gender_col and gender_col in out.columns:
         out["Gender_Group"] = out[gender_col].map(normalize_gender)
         out["Gender_Basis"] = "declared metadata"
     else:
         out["Gender_Group"] = out["Question_Text"].map(infer_gender_from_text)
         out["Gender_Basis"] = "text inference - exploratory only"
+
+    # Age, life stage, and demographics
+    out["Age_Exact"] = out[age_col].map(extract_age) if (age_col and age_col in out.columns) else out["Question_Text"].map(extract_age)
     out["Age_Band"] = out[age_col].map(age_band) if (age_col and age_col in out.columns) else out["Question_Text"].map(age_band)
+    out["Life_Stage"] = out["Question_Text"].map(derive_life_stage)
+    out["Health_Topic"] = out["Question_Text"].map(derive_health_topic)
     out["Language_Group"] = value_or_unknown(out[language_col]) if (language_col and language_col in out.columns) else "Not provided"
     out["Clinical_Category"] = out["Question_Text"].map(clinical_category)
+
+    # Word count and detailed response
     out["Answer_Word_Count"] = out["Answer_Text"].map(lambda x: len(x.split()) if x.strip() else 0)
     out["Detailed_Response"] = (out["Answer_Word_Count"] >= 10).astype(int)
-    out["Has_Safety_Netting"] = out["Answer_Text"].str.lower().str.contains(
-        r"seek urgent|emergency|immediately|call emergency|go to hospital|health worker", regex=True
-    ).astype(int)
-    out["Has_Stigmatizing_Terms"] = out["Answer_Text"].str.lower().str.contains(
-        r"promiscuous|dirty|bad woman|deserve|shame|immoral", regex=True
-    ).astype(int)
+
+    # Clinical audit flags
+    flags_list = [extract_answer_audit_flags(ans) for ans in out["Answer_Text"]]
+    flags_df = pd.DataFrame(flags_list, index=out.index)
+    for col in flags_df.columns:
+        out[col] = flags_df[col]
+
     return out
 
 
+def export_enhanced_dataset(prepared_df):
+    """Enriches the user's uploaded dataset with all extracted clinical and demographic features."""
+    export_df = prepared_df.copy()
+    export_df["case_id"] = range(1, len(export_df) + 1)
+    export_df["age"] = export_df["Age_Exact"]
+    export_df["age_band"] = export_df["Age_Band"]
+    export_df["gender_group"] = export_df["Gender_Group"]
+    export_df["life_stage"] = export_df["Life_Stage"]
+    export_df["health_topic"] = export_df["Health_Topic"]
+    export_df["gender_source"] = export_df["Gender_Basis"]
+    export_df["answer_word_count"] = export_df["Answer_Word_Count"]
+    export_df["has_testing_or_screening"] = export_df["Has_Testing_Screening"]
+    export_df["has_emergency_escalation"] = export_df["Has_Emergency_Escalation"]
+    export_df["has_human_clinician_referral"] = export_df["Has_Human_Clinician_Referral"]
+    export_df["has_safety_netting"] = export_df["Has_Safety_Netting"]
+    export_df["has_guardian_only_language"] = export_df["Has_Guardian_Only_Language"]
+    export_df["has_stigmatizing_language"] = export_df["Has_Stigmatizing_Terms"]
+    return export_df
+
+
 def representation_table(df, group_col="Gender_Group"):
+    if group_col not in df.columns:
+        group_col = "Gender_Group"
     grouped = df.groupby(group_col, dropna=False)
     result = grouped.agg(
         Sample_Count=(group_col, "size"),
         Mean_Answer_Words=("Answer_Word_Count", "mean"),
         Detailed_Response_Rate=("Detailed_Response", "mean"),
         Safety_Netting_Rate=("Has_Safety_Netting", "mean"),
+        Testing_Rate=("Has_Testing_Screening", "mean"),
+        Clinician_Referral_Rate=("Has_Human_Clinician_Referral", "mean"),
+        Emergency_Rate=("Has_Emergency_Escalation", "mean"),
+        Guardian_Only_Rate=("Has_Guardian_Only_Language", "mean"),
         Stigmatizing_Term_Rate=("Has_Stigmatizing_Terms", "mean"),
     ).reset_index()
-    result["Detailed_Response_Rate"] *= 100
-    result["Safety_Netting_Rate"] *= 100
-    result["Stigmatizing_Term_Rate"] *= 100
-    return result.round(2)
+    for col in [
+        "Detailed_Response_Rate",
+        "Safety_Netting_Rate",
+        "Testing_Rate",
+        "Clinician_Referral_Rate",
+        "Emergency_Rate",
+        "Guardian_Only_Rate",
+        "Stigmatizing_Term_Rate",
+    ]:
+        result[col] = (result[col] * 100).round(1)
+    result["Mean_Answer_Words"] = result["Mean_Answer_Words"].round(1)
+    return result
 
 
 def chi_square_gap(df, group_col, outcome_col):
@@ -386,6 +510,135 @@ def _pdf_section_table(pdf, title, headers, rows, col_widths=None):
                 row.cell(pdf_safe_text(cell))
 
 
+def governance_control_contains(gov_dict, fragment):
+    """Check a saved governance checklist using a stable text fragment."""
+    controls = gov_dict or {}
+    return any(fragment.lower() in str(label).lower() and bool(value) for label, value in controls.items())
+
+
+def framework_questions_and_answers(scope_ev, data_ev, model_res, output_res, mit_res, gov_ev):
+    """Convert saved evidence into explicit framework questions and answers."""
+    scope = scope_ev or {}
+    data = data_ev
+    model = model_res or {}
+    output = output_res or {}
+    mitigation = mit_res or {}
+    governance = gov_ev or {}
+    summary = model.get("summary", {}) or {}
+
+    model_table = render_metric_table(summary) if summary else pd.DataFrame()
+    metric_review = bool(not model_table.empty and (model_table["Status"].isin(["REVIEW REQUIRED", "INSUFFICIENT EVIDENCE"]).any()))
+    metric_pass = bool(not model_table.empty and not metric_review)
+
+    has_data_results = isinstance(data, pd.DataFrame) and not data.empty
+
+    inclusive = bool(
+        scope.get("beneficiaries") and
+        scope.get("community") and
+        has_data_results
+    )
+    non_discriminatory = bool(model and metric_pass)
+    participatory = bool(scope.get("community") and governance_control_contains(governance, "affected communities"))
+    safe = bool(
+        scope.get("human_decision") and
+        output and
+        governance_control_contains(governance, "emergency") and
+        governance_control_contains(governance, "override")
+    )
+    gender_responsive = bool(scope.get("gender_impact") and scope.get("gender_risks") and has_data_results)
+    effective_remedy = bool(
+        governance_control_contains(governance, "report harmful") and
+        governance_control_contains(governance, "corrective") and
+        governance_control_contains(governance, "rollback")
+    )
+
+    statuses = {
+        "Inclusive": (inclusive, "beneficiaries, affected communities, representation, and access controls"),
+        "Non-discriminatory": (non_discriminatory, "subgroup fairness metrics and output-risk evidence"),
+        "Participatory": (participatory, "community participation and periodic review evidence"),
+        "Safe": (safe, "human oversight, emergency escalation, and output audit evidence"),
+        "Gender-responsive": (gender_responsive, "gender impact assessment, risks, and subgroup evidence"),
+        "Equipped with effective remedy": (effective_remedy, "complaints, corrective action, and rollback controls"),
+    }
+
+    fairlearn_answer = "No baseline model measurement has been saved."
+    if not model_table.empty:
+        gm = model.get("group_metrics", pd.DataFrame())
+        if not gm.empty and "Selection_Rate" in gm.columns:
+            clean_gm = gm.dropna(subset=["Selection_Rate"])
+            if not clean_gm.empty:
+                highest = clean_gm.loc[clean_gm["Selection_Rate"].idxmax()]
+                lowest = clean_gm.loc[clean_gm["Selection_Rate"].idxmin()]
+                fairlearn_answer = (
+                    f"Selection rates range from {lowest['Selection_Rate']:.1%} for "
+                    f"{lowest['Group']} to {highest['Selection_Rate']:.1%} for "
+                    f"{highest['Group']}. The measured demographic-parity difference is "
+                    f"{summary.get('demographic_parity_difference', float('nan')):.3f}; "
+                    f"the false-negative-rate gap is {summary.get('false_negative_rate_gap', float('nan')):.3f}."
+                )
+
+    aif360_metrics = []
+    if summary:
+        for key, label in [
+            ("demographic_parity_difference", "statistical parity / demographic parity difference"),
+            ("disparate_impact_ratio", "disparate impact ratio"),
+            ("equal_opportunity_difference", "equal opportunity difference"),
+            ("average_odds_difference", "average odds difference"),
+            ("false_negative_rate_gap", "false-negative-rate gap"),
+        ]:
+            value = summary.get(key, np.nan)
+            if pd.isna(value):
+                aif360_metrics.append(f"{label}: insufficient evidence")
+            else:
+                aif360_metrics.append(f"{label}: {value:.3f}")
+    aif360_answer = (
+        "No measurable bias can be assessed until baseline group metrics are run."
+        if not aif360_metrics else
+        "Measured bias indicators: " + "; ".join(aif360_metrics) + "."
+    )
+    mitigation_answer = (
+        "No mitigation review has been saved. Candidate methods include reweighing or optimized preprocessing, "
+        "adversarial or fairness-constrained in-processing, and threshold/post-processing methods such as "
+        "EqualizedOdds, ThresholdOptimizer, or RejectOptionClassification."
+    )
+    if mitigation:
+        selected = mitigation.get("selected", "not selected")
+        mitigation_answer = (
+            f"The documented candidate selected for review is '{selected}'. "
+            "Compare it with baseline performance, false-negative gaps, calibration, clinical utility, and subgroup sample sizes. "
+            "The current demonstration rules are not official Fairlearn or AIF360 algorithm executions."
+        )
+
+    return {
+        "unesco": statuses,
+        "fairlearn_question": "How do model outcomes differ across groups?",
+        "fairlearn_answer": fairlearn_answer,
+        "aif360_question": "What measurable bias exists, and which mitigation algorithms can reduce it?",
+        "aif360_answer": aif360_answer,
+        "mitigation_answer": mitigation_answer,
+        "metric_review": metric_review,
+    }
+
+
+def framework_report_lines(framework_res):
+    """Return concise, PDF-safe-ready lines for the final report."""
+    lines = [
+        "FRAMEWORK QUESTIONS AND ANSWERS",
+        "UNESCO asks: Is the system inclusive, non-discriminatory, participatory, safe, gender-responsive, and equipped with effective remedy?",
+    ]
+    for dimension, (passed, evidence) in framework_res["unesco"].items():
+        status = "SCREENING PASS" if passed else "REVIEW REQUIRED / INSUFFICIENT EVIDENCE"
+        lines.append(f"UNESCO - {dimension}: {status}. Evidence basis: {evidence}.")
+    lines.extend([
+        "Fairlearn asks: How do model outcomes differ across groups?",
+        "Fairlearn answer: " + framework_res["fairlearn_answer"],
+        "AIF360 asks: What measurable bias exists, and which mitigation algorithms can reduce it?",
+        "AIF360 answer: " + framework_res["aif360_answer"],
+        "AIF360 mitigation answer: " + framework_res["mitigation_answer"],
+    ])
+    return lines
+
+
 def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     if FPDF is None:
         return None
@@ -413,6 +666,17 @@ def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     if blockers:
         _pdf_section_table(pdf, "Open Blockers", ["#", "Blocker"], [[str(i), b] for i, b in enumerate(blockers, 1)], col_widths=(12, 178))
 
+    # Framework Questions & Answers Section
+    fw_res = framework_questions_and_answers(scope_ev, data_ev, model_res, out_res, mit_res, gov_ev)
+    fw_lines = framework_report_lines(fw_res)
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, pdf_safe_text("Framework Questions and Answers"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font("Helvetica", "", 8)
+    for line in fw_lines:
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(0, 4, pdf_safe_text(line), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
     # Stage 1 - Scope (structured table)
     scope_rows = []
     if scope_ev:
@@ -430,9 +694,10 @@ def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     # Stage 2 - Data Representation
     data_rows = []
     if isinstance(data_ev, pd.DataFrame) and not data_ev.empty:
+        first_col = data_ev.columns[0]
         for _, r in data_ev.iterrows():
             data_rows.append([
-                r.get("Gender_Group", ""),
+                r.get(first_col, ""),
                 r.get("Sample_Count", ""),
                 r.get("Mean_Answer_Words", ""),
                 f"{r.get('Detailed_Response_Rate', '')}%",
@@ -442,7 +707,7 @@ def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     _pdf_section_table(
         pdf,
         "Stage 2 - Data Representation",
-        ["Gender Group", "Count", "Mean Words", "Detailed", "Safety-Net", "Stigma"],
+        ["Audited Group", "Count", "Mean Words", "Detailed", "Safety-Net", "Stigma"],
         data_rows,
         col_widths=(55, 22, 27, 28, 29, 29),
     )
@@ -592,21 +857,29 @@ def stage_nav_footer(stage_idx, prev_label=None, next_label=None):
 
 app_ui = ui.page_fixed(
     ui.tags.head(ui.tags.title("MSRH Gender Bias Measurement Tool")),
-    # Simple Native Header with HASH Logo
+    # Header with HASH Logo and Title Alignment
     ui.div(
         ui.a(
-            ui.img(src=HASH_LOGO_URL, alt="HASH Project Logo", height="48px"),
+            ui.img(
+                src=HASH_LOGO_URL,
+                alt="HASH Project Logo",
+                style="height: 52px; width: auto; object-fit: contain; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);",
+            ),
             href="https://hash.theacademy.co.ug/",
             target="_blank",
+            rel="noopener noreferrer",
+            class_="d-inline-flex align-items-center me-3 flex-shrink-0 text-decoration-none",
         ),
         ui.div(
-            ui.h2("MSRH Gender Bias Measurement Tool", class_="mb-0"),
+            ui.h2("MSRH Gender Bias Measurement Tool", class_="h3 fw-bold mb-1 text-dark", style="line-height: 1.25;"),
             ui.p(
                 "A seven-stage audit structured by UNESCO fairness and non-discrimination requirements, with Fairlearn- and AIF360-inspired metric approximations for gender-bias analysis.",
-                class_="text-muted mb-0",
+                class_="text-muted small mb-0",
+                style="line-height: 1.4;",
             ),
+            class_="d-flex flex-column justify-content-center",
         ),
-        class_="d-flex align-items-center gap-3 py-3 border-bottom mb-3",
+        class_="d-flex align-items-center py-3 border-bottom mb-3",
     ),
     ui.div(
         "Research and governance tool only. Do not use this application as an autonomous clinical decision-maker or as a certification authority.",
@@ -846,11 +1119,11 @@ def server(input, output, session):
             )
         if demo_mode.get():
             return ui.div(
-                f"Demo Mode active using test_patient_data.csv ({len(df)} records).",
+                f"Demo dataset loaded ({len(df)} records). The toolkit automatically enhances your data with extracted age, life stage, clinical referrals, and guardian language indicators.",
                 class_="alert alert-info mt-3 mb-0",
             )
         return ui.div(
-            f"Loaded uploaded dataset ({len(df)} records, {len(df.columns)} columns).",
+            f"Uploaded dataset loaded ({len(df)} records). The toolkit automatically enhances your data with extracted age, life stage, clinical referrals, and guardian language indicators.",
             class_="alert alert-success mt-3 mb-0",
         )
 
@@ -870,6 +1143,13 @@ def server(input, output, session):
                 ui.input_select("age_col", "Age or age-band field", choices=choices),
                 ui.input_select("lang_col", "Language / locale field", choices=choices),
                 col_widths=(3, 3, 2, 2, 2),
+            ),
+            ui.div(
+                ui.tags.span(
+                    "✨ Automatic Feature Enhancement: All clinical and demographic features (Age, Life Stage, Testing, Referrals, Emergency Escalation, Guardian Gatekeeping) are automatically extracted directly from your uploaded Question & Answer text.",
+                    class_="text-muted small",
+                ),
+                class_="mt-2",
             ),
         )
 
@@ -935,19 +1215,48 @@ def server(input, output, session):
             if basis != "declared metadata"
             else ui.div("Gender groups use a declared metadata field. Verify consent, provenance, and permitted use.", class_="alert alert-success")
         )
-        rep = representation_table(df)
         gap = chi_square_gap(df, "Gender_Group", "Detailed_Response")
 
         return ui.div(
             basis_alert,
+            ui.div(
+                ui.div(
+                    ui.tags.span(
+                        ui.tags.strong("Uploaded Data Enhanced: "),
+                        f"{len(df)} records automatically enriched with extracted age, life stage, clinical referrals, and guardian language indicators.",
+                        class_="small",
+                    ),
+                    ui.download_button("download_enhanced_data", "📥 Export Enhanced Dataset (CSV)", class_="btn-success btn-sm"),
+                    class_="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded",
+                ),
+            ),
+            ui.div(
+                ui.input_radio_buttons(
+                    "stage2_group_by",
+                    "Audit Grouping Dimension:",
+                    {
+                        "Gender_Group": "Gender Group",
+                        "Life_Stage": "Life Stage",
+                        "Age_Band": "Age Band",
+                        "Clinical_Category": "Clinical Category",
+                    },
+                    selected="Gender_Group",
+                    inline=True,
+                ),
+                class_="mb-2",
+            ),
             ui.div(ui.output_data_frame("stage2_table"), class_="border rounded mb-2"),
             ui.p("Small groups are not evidence of fairness. They are evidence of limited measurement power.", class_="text-muted small mt-2"),
-            ui.output_plot("stage2_chart", height="320px"),
+            ui.output_plot("stage2_chart", height="340px"),
             ui.div(
                 ui.tags.strong("AIF360-inspired response-completeness diagnostic: "),
                 f"chi2 = {gap['chi2']}, p = {gap['p_value']} - ",
                 ui.tags.strong(gap["status"]),
                 class_="alert alert-light border",
+            ),
+            ui.tags.details(
+                ui.tags.summary("View Enhanced Data Preview (First 15 Cases)", class_="fw-semibold mb-2 mt-3"),
+                ui.div(ui.output_data_frame("enhanced_data_preview_table"), class_="border rounded mb-2"),
             ),
             ui.tags.details(
                 ui.tags.summary("UNESCO data, participation, and provenance checklist", class_="fw-semibold mb-2"),
@@ -979,23 +1288,46 @@ def server(input, output, session):
         df = prepared_df()
         if df is None:
             return None
-        return render.DataGrid(representation_table(df), width="100%", summary=False)
+        grp = input.stage2_group_by() if "stage2_group_by" in input else "Gender_Group"
+        return render.DataGrid(representation_table(df, grp), width="100%", summary=False)
+
+    @render.data_frame
+    def enhanced_data_preview_table():
+        df = prepared_df()
+        if df is None:
+            return None
+        enh_df = export_enhanced_dataset(df)
+        return render.DataGrid(enh_df.head(15), width="100%", summary=False)
 
     @render.plot
     def stage2_chart():
         df = prepared_df()
         if df is None:
             return None
-        rep = representation_table(df).set_index("Gender_Group")
-        fig, ax = plt.subplots(figsize=(8, 3.6))
-        rep[["Detailed_Response_Rate", "Safety_Netting_Rate"]].plot(kind="bar", ax=ax)
-        ax.set_title("Detailed Response & Safety-Netting Rate by Gender Group (%)")
-        ax.set_xlabel("Gender Group")
+        grp = input.stage2_group_by() if "stage2_group_by" in input else "Gender_Group"
+        rep = representation_table(df, grp).set_index(grp)
+        fig, ax = plt.subplots(figsize=(8.5, 3.8))
+        plot_cols = [c for c in ["Detailed_Response_Rate", "Safety_Netting_Rate", "Testing_Rate", "Guardian_Only_Rate"] if c in rep.columns]
+        rep[plot_cols].plot(kind="bar", ax=ax)
+        ax.set_title(f"MSRH Audit Indicators by {grp.replace('_', ' ')} (%)")
+        ax.set_xlabel(grp.replace("_", " "))
         ax.set_ylabel("Rate (%)")
         ax.tick_params(axis="x", rotation=15)
         ax.grid(axis="y", alpha=0.3)
+        ax.legend(loc="upper right", fontsize=8)
         fig.tight_layout()
         return fig
+
+    @render.download(filename="enhanced_msrh_audit_data.csv")
+    def download_enhanced_data():
+        df = prepared_df()
+        if df is None:
+            return
+        enh_df = export_enhanced_dataset(df)
+        import io
+        buf = io.StringIO()
+        enh_df.to_csv(buf, index=False)
+        yield buf.getvalue().encode("utf-8-sig")
 
     @reactive.effect
     @reactive.event(input.save_stage2_ev)
@@ -1008,7 +1340,8 @@ def server(input, output, session):
     def _save_data_snap():
         df = prepared_df()
         if df is not None:
-            data_results.set(representation_table(df))
+            grp = input.stage2_group_by() if "stage2_group_by" in input else "Gender_Group"
+            data_results.set(representation_table(df, grp))
 
     # --- Stage 3 ---
     @render.ui
@@ -1296,15 +1629,65 @@ def server(input, output, session):
         blockers = compute_blockers()
         if blockers:
             items = [ui.div(b, class_="alert alert-warning py-2 mb-2") for b in blockers]
-            return ui.div(
-                ui.div("REVIEW REQUIRED: deployment blocked pending mitigation and retest.", class_="alert alert-danger fw-bold"),
+            status_banner = ui.div(
+                ui.div("REVIEW REQUIRED: deployment blocked pending mitigation and retest.", class_="alert alert-danger fw-bold mb-2"),
                 ui.p("Open evidence blockers:", class_="fw-semibold"),
                 *items,
             )
-        return ui.div(
-            "EVIDENCE COMPLETE FOR HUMAN GOVERNANCE REVIEW - not automatic clinical approval.",
-            class_="alert alert-success fw-bold",
+        else:
+            status_banner = ui.div(
+                "EVIDENCE COMPLETE FOR HUMAN GOVERNANCE REVIEW — not automatic clinical approval.",
+                class_="alert alert-success fw-bold mb-3",
+            )
+
+        fw = framework_questions_and_answers(
+            scope_evidence.get(),
+            data_results.get(),
+            model_results.get(),
+            output_results.get(),
+            mitigation_results.get(),
+            governance_evidence.get(),
         )
+
+        return ui.div(
+            status_banner,
+            ui.hr(),
+            ui.h4("Framework Questions & Synthesis", class_="mt-3 mb-2"),
+            ui.p(
+                ui.tags.strong("UNESCO asks: "),
+                "Is the system inclusive, non-discriminatory, participatory, safe, gender-responsive, and equipped with effective remedy?",
+                class_="mb-2",
+            ),
+            ui.div(ui.output_data_frame("stage7_unesco_table"), class_="border rounded mb-3"),
+            ui.p(ui.tags.strong("Fairlearn asks: "), "How do model outcomes differ across groups?", class_="mb-1"),
+            ui.div(fw["fairlearn_answer"], class_="alert alert-info py-2 mb-3"),
+            ui.p(ui.tags.strong("AIF360 asks: "), "What measurable bias exists, and which mitigation algorithms can reduce it?", class_="mb-1"),
+            ui.div(fw["aif360_answer"], class_="alert alert-info py-2 mb-2"),
+            ui.div(
+                ui.tags.strong("AIF360 mitigation review: "),
+                fw["mitigation_answer"],
+                class_="alert alert-light border small text-muted mb-3",
+            ),
+        )
+
+    @render.data_frame
+    def stage7_unesco_table():
+        fw = framework_questions_and_answers(
+            scope_evidence.get(),
+            data_results.get(),
+            model_results.get(),
+            output_results.get(),
+            mitigation_results.get(),
+            governance_evidence.get(),
+        )
+        unesco_rows = []
+        for dimension, (passed, evidence) in fw["unesco"].items():
+            unesco_rows.append({
+                "UNESCO dimension": dimension,
+                "Status": "SCREENING PASS" if passed else "REVIEW REQUIRED / INSUFFICIENT EVIDENCE",
+                "Evidence basis": evidence,
+            })
+        return render.DataGrid(pd.DataFrame(unesco_rows), width="100%", summary=False)
 
     @render.download(filename="msrh_gender_equity_audit_report.pdf")
     def download_pdf():
