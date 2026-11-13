@@ -29,34 +29,14 @@ HASH_LOGO_URL = "https://hash.theacademy.co.ug/wp-content/themes/openstrap/image
 
 HASH_PARTNERS = [
     {
-        "name": "AI4D Africa",
-        "url": "https://africa.ai4d.ai/",
-        "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/ai4d.jpg",
-    },
-    {
-        "name": "Sida",
-        "url": "https://www.sida.se/en/",
-        "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/Sida.jpg",
-    },
-    {
-        "name": "IDRC",
-        "url": "https://www.idrc.ca/en",
-        "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/IDRC.jpg",
-    },
-    {
         "name": "Infectious Diseases Institute (IDI)",
         "url": "https://idi.mak.ac.ug/",
         "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/IDI.jpg",
     },
     {
-        "name": "Makerere AI Lab",
+        "name": "Mak-AI",
         "url": "https://air.ug/",
-        "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/Mak-lab.jpg",
-    },
-    {
-        "name": "Sunbird AI",
-        "url": "https://sunbird.ai",
-        "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/Sunbird-n.jpg",
+        "logo": "https://air.ug/wp-content/uploads/2025/06/Mak-AI-06.png",
     },
 ]
 
@@ -446,8 +426,8 @@ def partners_section_ui():
         for p in HASH_PARTNERS
     ]
     return ui.card(
-        ui.card_header("Partners & Funders"),
-        ui.layout_columns(*partner_cols, col_widths=(2, 2, 2, 2, 2, 2)),
+        ui.card_header("Partners"),
+        ui.layout_columns(*partner_cols, col_widths=(6, 6)),
         class_="mt-4",
     )
 
@@ -456,7 +436,7 @@ def overview_tab_ui():
     return ui.nav_panel(
         "Overview",
         ui.card(
-            ui.card_header("About the HASH MSRH Gender Equity Auditor"),
+            ui.card_header("About the MSRH Gender Bias Measurement Tool"),
             ui.p(
                 "This toolkit helps AI developers, clinical researchers, and health governance teams evaluate "
                 "Maternal, Sexual, and Reproductive Health (MSRH) question-answering models and datasets for "
@@ -502,7 +482,7 @@ def overview_tab_ui():
 
 
 app_ui = ui.page_fixed(
-    ui.tags.head(ui.tags.title("HASH MSRH Gender Equity Auditor")),
+    ui.tags.head(ui.tags.title("MSRH Gender Bias Measurement Tool")),
     # Simple Native Header with HASH Logo
     ui.div(
         ui.a(
@@ -511,7 +491,7 @@ app_ui = ui.page_fixed(
             target="_blank",
         ),
         ui.div(
-            ui.h2("MSRH Gender Equity Auditor", class_="mb-0"),
+            ui.h2("MSRH Gender Bias Measurement Tool", class_="mb-0"),
             ui.p(
                 "Hub for Artificial Intelligence in Maternal, Sexual and Reproductive Health (HASH)",
                 class_="text-muted mb-0",
