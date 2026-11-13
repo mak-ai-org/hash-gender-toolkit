@@ -667,43 +667,66 @@ def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     if blockers:
         _pdf_section_table(pdf, "Open Blockers", ["#", "Blocker"], [[str(i), b] for i, b in enumerate(blockers, 1)], col_widths=(12, 178))
 
-    # Framework Evaluation Tables
+    # Framework Questions & Synthesis (Exact match to Web UI layout)
     fw_res = framework_questions_and_answers(scope_ev, data_ev, model_res, out_res, mit_res, gov_ev)
 
-    # 1. UNESCO Principle 10 Table
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 6, pdf_safe_text("Framework Questions & Synthesis"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(1)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.write(4.5, pdf_safe_text("UNESCO asks: "))
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.write(4.5, pdf_safe_text("Is the system inclusive, non-discriminatory, participatory, safe, gender-responsive, and equipped with effective remedy?\n"))
+    pdf.ln(1)
+
+    # 1. UNESCO Dimension Table (Exact match to UI: "UNESCO dimension", "Status", "Evidence basis")
     unesco_table_rows = []
     for dimension, (passed, evidence) in fw_res["unesco"].items():
-        status_label = "SCREENING PASS" if passed else "REVIEW REQUIRED"
+        status_label = "SCREENING PASS" if passed else "REVIEW REQUIRED / INSUFFICIENT EVIDENCE"
         unesco_table_rows.append([dimension, status_label, evidence])
 
-    _pdf_section_table(
-        pdf,
-        "Framework Assessment: UNESCO Principle 10 (Ethical AI Lifecycle)",
-        ["UNESCO Dimension", "Screening Status", "Evidence Basis & Safeguards"],
-        unesco_table_rows,
-        col_widths=(45, 45, 100),
-    )
+    pdf.set_font("Helvetica", "", 8)
+    with pdf.table(col_widths=(42, 63, 85), text_align="LEFT", line_height=4.5, padding=1.5) as table:
+        hdr = table.row()
+        for h in ["UNESCO dimension", "Status", "Evidence basis"]:
+            hdr.cell(pdf_safe_text(h))
+        for r in unesco_table_rows:
+            row = table.row()
+            for cell in r:
+                row.cell(pdf_safe_text(cell))
 
-    # 2. Fairlearn & IBM AIF360 Algorithmic Bias Synthesis Table
-    framework_synthesis_rows = [
-        [
-            "Fairlearn (Group Outcomes)",
-            "How do model outcomes differ across groups?",
-            fw_res["fairlearn_answer"],
-        ],
-        [
-            "IBM AIF360 (Bias & Mitigation)",
-            "What measurable bias exists, and which mitigation algorithms can reduce it?",
-            f"{fw_res['aif360_answer']}\nRecommended Mitigation: {fw_res['mitigation_answer']}",
-        ],
-    ]
-    _pdf_section_table(
-        pdf,
-        "Framework Assessment: Fairlearn & IBM AI Fairness 360",
-        ["Framework Dimension", "Core Diagnostic Question", "Audit Evaluation & Recommended Actions"],
-        framework_synthesis_rows,
-        col_widths=(45, 55, 90),
-    )
+    # 2. Fairlearn Callout Box (Exact match to UI)
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.write(4.5, pdf_safe_text("Fairlearn asks: "))
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.write(4.5, pdf_safe_text("How do model outcomes differ across groups?\n"))
+    pdf.ln(1)
+    pdf.set_fill_color(225, 243, 251)  # Soft light blue alert background
+    pdf.set_draw_color(182, 228, 246)  # Alert border
+    pdf.set_font("Helvetica", "", 8)
+    pdf.multi_cell(0, 4.5, pdf_safe_text(fw_res["fairlearn_answer"]), border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    # 3. AIF360 Callout Box (Exact match to UI)
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.write(4.5, pdf_safe_text("AIF360 asks: "))
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.write(4.5, pdf_safe_text("What measurable bias exists, and which mitigation algorithms can reduce it?\n"))
+    pdf.ln(1)
+    pdf.set_fill_color(225, 243, 251)
+    pdf.set_draw_color(182, 228, 246)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.multi_cell(0, 4.5, pdf_safe_text(fw_res["aif360_answer"]), border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    # 4. AIF360 Mitigation Review Box (Exact match to UI)
+    pdf.ln(2)
+    pdf.set_fill_color(248, 249, 250)  # Neutral light card
+    pdf.set_draw_color(222, 226, 230)  # Light border
+    pdf.set_font("Helvetica", "", 8)
+    mitigation_full_text = "AIF360 mitigation review: " + fw_res["mitigation_answer"]
+    pdf.multi_cell(0, 4.5, pdf_safe_text(mitigation_full_text), border=1, fill=True, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     # Stage 1 - Scope (structured table)
     scope_rows = []
