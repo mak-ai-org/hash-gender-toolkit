@@ -480,6 +480,34 @@ def overview_tab_ui():
     )
 
 
+def stage_nav_footer(stage_idx, prev_label=None, next_label=None):
+    buttons = []
+    if prev_label:
+        buttons.append(
+            ui.input_action_button(
+                f"nav_back_{stage_idx}",
+                f"← Back to {prev_label}",
+                class_="btn-outline-secondary",
+                onclick="window.scrollTo({top: 0, behavior: 'smooth'});",
+            )
+        )
+    else:
+        buttons.append(ui.span())
+    if next_label:
+        buttons.append(
+            ui.input_action_button(
+                f"nav_next_{stage_idx}",
+                f"Next: {next_label} →",
+                class_="btn-primary",
+                onclick="window.scrollTo({top: 0, behavior: 'smooth'});",
+            )
+        )
+    return ui.div(
+        ui.hr(class_="mt-4 mb-3"),
+        ui.div(*buttons, class_="d-flex justify-content-between align-items-center"),
+    )
+
+
 app_ui = ui.page_fixed(
     ui.tags.head(ui.tags.title("MSRH Gender Bias Measurement Tool")),
     # Simple Native Header with HASH Logo
@@ -534,6 +562,7 @@ app_ui = ui.page_fixed(
                 ui.input_checkbox("scope_community", "Affected women, girls, and gender-diverse communities participated in design or review.", width="100%"),
                 ui.input_action_button("save_stage1", "Save Stage 1 evidence", class_="btn-primary mt-2"),
                 ui.output_ui("stage1_status"),
+                stage_nav_footer(1, "Overview", "2. Data"),
                 class_="mt-3",
             ),
         ),
@@ -543,6 +572,7 @@ app_ui = ui.page_fixed(
                 ui.card_header("Stage 2 - Data Representation, Participation, and Provenance"),
                 ui.p("UNESCO inclusion and gender requirements plus AIF360-inspired dataset-level diagnostics.", class_="text-muted"),
                 ui.output_ui("stage2_content"),
+                stage_nav_footer(2, "1. Scope", "3. Fairness"),
                 class_="mt-3",
             ),
         ),
@@ -552,6 +582,7 @@ app_ui = ui.page_fixed(
                 ui.card_header("Stage 3 - Model Fairness Measurement"),
                 ui.p("Fairlearn-inspired MetricFrame and AIF360-inspired group fairness metrics.", class_="text-muted"),
                 ui.output_ui("stage3_content"),
+                stage_nav_footer(3, "2. Data", "4. Mitigation"),
                 class_="mt-3",
             ),
         ),
@@ -561,6 +592,7 @@ app_ui = ui.page_fixed(
                 ui.card_header("Stage 4 - Mitigation, Retesting, and Trade-offs"),
                 ui.p("AIF360-inspired pre/in/post-processing comparison with Fairlearn-style utility/fairness trade-off review.", class_="text-muted"),
                 ui.output_ui("stage4_content"),
+                stage_nav_footer(4, "3. Fairness", "5. Output Equity"),
                 class_="mt-3",
             ),
         ),
@@ -570,6 +602,7 @@ app_ui = ui.page_fixed(
                 ui.card_header("Stage 5 - Output Equity, Counterfactuals, and Clinical Safety"),
                 ui.p("UNESCO harm prevention and remedy lens; pronoun-only testing is one diagnostic, not a certification.", class_="text-muted"),
                 ui.output_ui("stage5_content"),
+                stage_nav_footer(5, "4. Mitigation", "6. Governance"),
                 class_="mt-3",
             ),
         ),
@@ -581,6 +614,7 @@ app_ui = ui.page_fixed(
                 ui.input_checkbox_group("gov_checks", "Governance, remedy, and monitoring controls:", choices=GOVERNANCE_ITEMS, width="100%"),
                 ui.input_action_button("save_stage6", "Save governance evidence", class_="btn-primary"),
                 ui.output_ui("stage6_status"),
+                stage_nav_footer(6, "5. Output Equity", "7. Report"),
                 class_="mt-3",
             ),
         ),
@@ -590,6 +624,7 @@ app_ui = ui.page_fixed(
                 ui.card_header("Stage 7 - Evidence Report and Deployment Decision"),
                 ui.output_ui("stage7_content"),
                 ui.download_button("download_pdf", "Download gender-equity audit report (PDF)", class_="btn-primary mt-2"),
+                stage_nav_footer(7, "6. Governance", None),
                 class_="mt-3",
             ),
         ),
@@ -671,6 +706,29 @@ def server(input, output, session):
     @reactive.event(input.start_audit)
     def _on_start_audit():
         ui.update_navs("main_tabs", selected="1. Scope")
+
+    def _register_nav(btn_id, target_tab):
+        @reactive.effect
+        @reactive.event(lambda: input[btn_id]())
+        def _go():
+            ui.update_navs("main_tabs", selected=target_tab)
+
+    for _btn_id, _target in [
+        ("nav_back_1", "Overview"),
+        ("nav_next_1", "2. Data"),
+        ("nav_back_2", "1. Scope"),
+        ("nav_next_2", "3. Fairness"),
+        ("nav_back_3", "2. Data"),
+        ("nav_next_3", "4. Mitigation"),
+        ("nav_back_4", "3. Fairness"),
+        ("nav_next_4", "5. Output Equity"),
+        ("nav_back_5", "4. Mitigation"),
+        ("nav_next_5", "6. Governance"),
+        ("nav_back_6", "5. Output Equity"),
+        ("nav_next_6", "7. Report"),
+        ("nav_back_7", "6. Governance"),
+    ]:
+        _register_nav(_btn_id, _target)
 
     @reactive.effect
     @reactive.event(input.load_demo_overview)
