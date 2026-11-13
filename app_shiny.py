@@ -5,6 +5,7 @@ Seven-stage gender-bias audit toolkit for Maternal, Sexual, and Reproductive
 Health (MSRH) Q&A datasets and clinical AI systems.
 """
 
+import base64
 from datetime import datetime, timezone
 import os
 import re
@@ -29,7 +30,17 @@ except ImportError:
 # =============================================================================
 
 HASH_LOGO_URL = "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/logo.png"
-HASH_FAVICON_URL = "https://hash.theacademy.co.ug/favicon.ico"
+
+
+def get_favicon_data_uri():
+    fav_file = "favicon.png"
+    if os.path.exists(fav_file):
+        try:
+            with open(fav_file, "rb") as f:
+                return f"data:image/png;base64,{base64.b64encode(f.read()).decode('utf-8')}"
+        except Exception:
+            pass
+    return "https://hash.theacademy.co.ug/favicon.ico"
 
 HASH_PARTNERS = [
     {
@@ -909,16 +920,17 @@ def stage_nav_footer(stage_idx, prev_label=None, next_label=None):
 app_ui = ui.page_fixed(
     ui.tags.head(
         ui.tags.title("MSRH Gender Bias Measurement Tool"),
-        ui.tags.link(rel="icon", type="image/x-icon", href=HASH_FAVICON_URL),
+        ui.tags.link(rel="icon", type="image/png", href=get_favicon_data_uri()),
+        ui.tags.link(rel="shortcut icon", type="image/png", href=get_favicon_data_uri()),
         ui.tags.link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"),
     ),
-    # Header with HASH Favicon Logo and Title Alignment
+    # Header with HASH Logo and Title Alignment
     ui.div(
         ui.a(
             ui.img(
-                src=HASH_FAVICON_URL,
-                alt="HASH Project Icon",
-                style="height: 48px; width: 48px; object-fit: contain; border-radius: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);",
+                src=HASH_LOGO_URL,
+                alt="HASH Project Logo",
+                style="height: 52px; width: auto; object-fit: contain; border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);",
             ),
             href="https://hash.theacademy.co.ug/",
             target="_blank",
