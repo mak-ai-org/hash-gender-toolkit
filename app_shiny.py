@@ -343,7 +343,7 @@ class AuditPDF(FPDF if FPDF else object):
     if FPDF:
         def header(self):
             self.set_font("Helvetica", "B", 14)
-            self.cell(0, 8, "MSRH GENDER BIAS MEASUREMENT REPORT", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+            self.cell(0, 8, "MSRH GENDER BIAS MEASUREMENT TOOL", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
             self.set_font("Helvetica", "I", 8)
             self.cell(0, 5, "UNESCO Principle 10 / Fairlearn-inspired / AIF360-inspired", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
             self.ln(4)
