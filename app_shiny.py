@@ -29,6 +29,7 @@ except ImportError:
 # =============================================================================
 
 HASH_LOGO_URL = "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/logo.png"
+HASH_FAVICON_URL = "https://hash.theacademy.co.ug/favicon.ico"
 
 HASH_PARTNERS = [
     {
@@ -666,16 +667,43 @@ def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     if blockers:
         _pdf_section_table(pdf, "Open Blockers", ["#", "Blocker"], [[str(i), b] for i, b in enumerate(blockers, 1)], col_widths=(12, 178))
 
-    # Framework Questions & Answers Section
+    # Framework Evaluation Tables
     fw_res = framework_questions_and_answers(scope_ev, data_ev, model_res, out_res, mit_res, gov_ev)
-    fw_lines = framework_report_lines(fw_res)
-    pdf.ln(3)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 6, pdf_safe_text("Framework Questions and Answers"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
-    pdf.set_font("Helvetica", "", 8)
-    for line in fw_lines:
-        pdf.set_x(pdf.l_margin)
-        pdf.multi_cell(0, 4, pdf_safe_text(line), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    # 1. UNESCO Principle 10 Table
+    unesco_table_rows = []
+    for dimension, (passed, evidence) in fw_res["unesco"].items():
+        status_label = "SCREENING PASS" if passed else "REVIEW REQUIRED"
+        unesco_table_rows.append([dimension, status_label, evidence])
+
+    _pdf_section_table(
+        pdf,
+        "Framework Assessment: UNESCO Principle 10 (Ethical AI Lifecycle)",
+        ["UNESCO Dimension", "Screening Status", "Evidence Basis & Safeguards"],
+        unesco_table_rows,
+        col_widths=(45, 45, 100),
+    )
+
+    # 2. Fairlearn & IBM AIF360 Algorithmic Bias Synthesis Table
+    framework_synthesis_rows = [
+        [
+            "Fairlearn (Group Outcomes)",
+            "How do model outcomes differ across groups?",
+            fw_res["fairlearn_answer"],
+        ],
+        [
+            "IBM AIF360 (Bias & Mitigation)",
+            "What measurable bias exists, and which mitigation algorithms can reduce it?",
+            f"{fw_res['aif360_answer']}\nRecommended Mitigation: {fw_res['mitigation_answer']}",
+        ],
+    ]
+    _pdf_section_table(
+        pdf,
+        "Framework Assessment: Fairlearn & IBM AI Fairness 360",
+        ["Framework Dimension", "Core Diagnostic Question", "Audit Evaluation & Recommended Actions"],
+        framework_synthesis_rows,
+        col_widths=(45, 55, 90),
+    )
 
     # Stage 1 - Scope (structured table)
     scope_rows = []
@@ -856,14 +884,18 @@ def stage_nav_footer(stage_idx, prev_label=None, next_label=None):
 
 
 app_ui = ui.page_fixed(
-    ui.tags.head(ui.tags.title("MSRH Gender Bias Measurement Tool")),
-    # Header with HASH Logo and Title Alignment
+    ui.tags.head(
+        ui.tags.title("MSRH Gender Bias Measurement Tool"),
+        ui.tags.link(rel="icon", type="image/x-icon", href=HASH_FAVICON_URL),
+        ui.tags.link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"),
+    ),
+    # Header with HASH Favicon Logo and Title Alignment
     ui.div(
         ui.a(
             ui.img(
-                src=HASH_LOGO_URL,
-                alt="HASH Project Logo",
-                style="height: 52px; width: auto; object-fit: contain; border-radius: 6px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);",
+                src=HASH_FAVICON_URL,
+                alt="HASH Project Icon",
+                style="height: 48px; width: 48px; object-fit: contain; border-radius: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);",
             ),
             href="https://hash.theacademy.co.ug/",
             target="_blank",
@@ -978,7 +1010,12 @@ app_ui = ui.page_fixed(
             ui.card(
                 ui.card_header("Stage 7 - Evidence Report and Deployment Decision"),
                 ui.output_ui("stage7_content"),
-                ui.download_button("download_pdf", "Download gender-equity audit report (PDF)", class_="btn-primary mt-2"),
+                ui.download_button(
+                    "download_pdf",
+                    "Download gender-equity audit report (PDF)",
+                    icon=ui.HTML('<i class="bi bi-file-earmark-pdf me-1"></i>'),
+                    class_="btn-primary mt-2",
+                ),
                 stage_nav_footer(7, "6. Governance", None),
                 class_="mt-3",
             ),
@@ -1146,7 +1183,9 @@ def server(input, output, session):
             ),
             ui.div(
                 ui.tags.span(
-                    "✨ Automatic Feature Enhancement: All clinical and demographic features (Age, Life Stage, Testing, Referrals, Emergency Escalation, Guardian Gatekeeping) are automatically extracted directly from your uploaded Question & Answer text.",
+                    ui.HTML('<i class="bi bi-gear-wide-connected text-primary me-1"></i> '),
+                    ui.tags.strong("Automatic Feature Enhancement: "),
+                    "All clinical and demographic features (Age, Life Stage, Testing, Referrals, Emergency Escalation, Guardian Gatekeeping) are automatically extracted directly from your uploaded Question & Answer text.",
                     class_="text-muted small",
                 ),
                 class_="mt-2",
@@ -1226,7 +1265,12 @@ def server(input, output, session):
                         f"{len(df)} records automatically enriched with extracted age, life stage, clinical referrals, and guardian language indicators.",
                         class_="small",
                     ),
-                    ui.download_button("download_enhanced_data", "📥 Export Enhanced Dataset (CSV)", class_="btn-success btn-sm"),
+                    ui.download_button(
+                        "download_enhanced_data",
+                        "Export Enhanced Dataset (CSV)",
+                        icon=ui.HTML('<i class="bi bi-download me-1"></i>'),
+                        class_="btn-success btn-sm",
+                    ),
                     class_="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded",
                 ),
             ),
