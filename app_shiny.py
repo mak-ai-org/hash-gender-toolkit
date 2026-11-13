@@ -554,7 +554,7 @@ app_ui = ui.page_fixed(
             "1. Scope",
             ui.card(
                 ui.card_header("Stage 1 - Scope"),
-                ui.p("UNESCO Principle 10: fairness, non-discrimination, and gender-responsive ethical impact assessment.", class_="text-muted"),
+                ui.p("UNESCO lifecycle gate: define purpose, beneficiaries, risks, and affected groups before measuring model fairness.", class_="text-muted"),
                 ui.div(GENDER_EQUITY_PRINCIPLE, class_="alert alert-info"),
                 ui.input_text_area("scope_purpose", "Intended purpose", placeholder="Example: support MSRH triage and referral; not autonomous diagnosis.", width="100%"),
                 ui.input_text_area("scope_beneficiaries", "Intended beneficiaries and affected communities", width="100%"),
