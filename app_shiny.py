@@ -340,9 +340,9 @@ class AuditPDF(FPDF if FPDF else object):
     if FPDF:
         def header(self):
             self.set_font("Helvetica", "B", 14)
-            self.cell(0, 8, "HASH MSRH GENDER EQUITY AUDIT REPORT", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+            self.cell(0, 8, "MSRH GENDER BIAS MEASUREMENT REPORT", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
             self.set_font("Helvetica", "I", 8)
-            self.cell(0, 5, "Hub for Artificial Intelligence in Maternal, Sexual and Reproductive Health", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+            self.cell(0, 5, "UNESCO Principle 10 / Fairlearn-inspired / AIF360-inspired", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
             self.ln(4)
 
         def footer(self):
@@ -374,11 +374,11 @@ def build_pdf(blockers, scope_ev, data_ev, model_res, mit_res, out_res, gov_ev):
     pdf.multi_cell(
         0, 5,
         f"Generated: {datetime.now(timezone.utc).isoformat()}\n"
-        "This report is an internal audit evidence summary and does not constitute clinical validation or regulatory approval."
+        "This report is an evidence summary, not clinical validation, regulatory approval, or official Fairlearn/AIF360 certification."
     )
     pdf.ln(3)
     pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "Guiding Equity Principle", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.cell(0, 7, "UNESCO fairness and gender lens", new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font("Helvetica", "", 9)
     pdf.multi_cell(0, 5, GENDER_EQUITY_PRINCIPLE)
     pdf.ln(3)
@@ -440,30 +440,33 @@ def overview_tab_ui():
             ui.p(
                 "This toolkit helps AI developers, clinical researchers, and health governance teams evaluate "
                 "Maternal, Sexual, and Reproductive Health (MSRH) question-answering models and datasets for "
-                "gender representation gaps, subgroup disparities, mitigation trade-offs, and clinical safety."
+                "gender representation gaps, subgroup disparities, mitigation trade-offs, and clinical safety, "
+                "structured by UNESCO Principle 10 with Fairlearn- and IBM AIF360-inspired metrics."
             ),
             ui.layout_columns(
                 ui.card(
-                    ui.card_header("Who It Is For"),
-                    ui.p(
-                        "Built for AI developers, clinical researchers, digital health implementers, and "
-                        "governance teams auditing AI triage, health-information, or decision-support tools before deployment.",
+                    ui.card_header("Intended Users"),
+                    ui.tags.ul(
+                        ui.tags.li("AI developers"),
+                        ui.tags.li("Clinical researchers"),
+                        ui.tags.li("Digital health implementers"),
+                        ui.tags.li("Health governance and ethics teams"),
                         class_="mb-0",
                     ),
                 ),
                 ui.card(
-                    ui.card_header("Expected CSV Format"),
+                    ui.card_header("Expected Data Format"),
                     ui.p(
-                        "Upload a CSV containing at least a Question/Prompt column and an Answer/Response column. "
-                        "Optional Gender and validated Outcome columns enable subgroup parity and mitigation testing.",
+                        "Upload a CSV containing at least a Question/Prompt column and an Answer/Response column.",
+                        # "Optional Gender and validated Outcome columns enable subgroup parity and mitigation testing."
                         class_="mb-0",
                     ),
                 ),
                 col_widths=(6, 6),
             ),
-            ui.h5("How the 7-Stage Audit Works", class_="mt-3 mb-2"),
+            ui.h5("How the tool works", class_="mt-3 mb-2"),
             ui.tags.ol(
-                ui.tags.li(ui.strong("Stage 1 — Scope & Gender Impact: "), "Document intended use, prohibited decisions, and gender risks."),
+                ui.tags.li(ui.strong("Stage 1 — Scope: "), "Document intended use, prohibited decisions, and gender risks."),
                 ui.tags.li(ui.strong("Stage 2 — Data Representation: "), "Inspect gender balance, response completeness, safety-netting, and provenance."),
                 ui.tags.li(ui.strong("Stage 3 — Model Fairness: "), "Measure subgroup selection rates, recall, false-negative rates, and parity gaps."),
                 ui.tags.li(ui.strong("Stage 4 — Mitigation & Trade-offs: "), "Compare mitigation strategies and accuracy vs. fairness trade-offs."),
@@ -471,11 +474,7 @@ def overview_tab_ui():
                 ui.tags.li(ui.strong("Stage 6 — Governance & Monitoring: "), "Record human oversight, complaint channels, and post-deployment monitoring."),
                 ui.tags.li(ui.strong("Stage 7 — Audit Report: "), "Review readiness blockers and export a structured PDF audit report."),
             ),
-            ui.div(
-                ui.input_action_button("start_audit", "Start Audit (Go to Stage 1)", class_="btn-primary me-2"),
-                ui.input_action_button("load_demo_overview", "Load Sample Demo & Start", class_="btn-outline-primary"),
-                class_="mt-3",
-            ),
+            ui.output_ui("overview_actions_ui"),
             class_="mt-3",
         ),
     )
@@ -493,14 +492,14 @@ app_ui = ui.page_fixed(
         ui.div(
             ui.h2("MSRH Gender Bias Measurement Tool", class_="mb-0"),
             ui.p(
-                "Hub for Artificial Intelligence in Maternal, Sexual and Reproductive Health (HASH)",
+                "A seven-stage audit structured by UNESCO fairness and non-discrimination requirements, with Fairlearn- and AIF360-inspired metric approximations for gender-bias analysis.",
                 class_="text-muted mb-0",
             ),
         ),
         class_="d-flex align-items-center gap-3 py-3 border-bottom mb-3",
     ),
     ui.div(
-        "Research and governance tool only. Do not use this application as an autonomous clinical decision-maker.",
+        "Research and governance tool only. Do not use this application as an autonomous clinical decision-maker or as a certification authority.",
         class_="alert alert-warning",
     ),
     # Dataset Upload Card
@@ -510,11 +509,7 @@ app_ui = ui.page_fixed(
             ui.input_file("csv_upload", "Upload MSRH Q&A CSV", accept=[".csv"], width="100%"),
             ui.div(
                 ui.tags.label("Sample Data", class_="control-label d-block mb-2"),
-                ui.div(
-                    ui.input_action_button("load_demo", "Load Sample Demo Dataset", class_="btn-primary"),
-                    ui.input_action_button("clear_demo", "Clear Dataset", class_="btn-outline-secondary"),
-                    class_="d-flex flex-wrap gap-2",
-                ),
+                ui.output_ui("sample_data_buttons_ui"),
             ),
             col_widths=(7, 5),
         ),
@@ -527,17 +522,17 @@ app_ui = ui.page_fixed(
         ui.nav_panel(
             "1. Scope",
             ui.card(
-                ui.card_header("Stage 1 - Scope and Gender Impact"),
-                ui.p("Define intended purpose, beneficiaries, gender risks, and affected groups before measuring model fairness.", class_="text-muted"),
+                ui.card_header("Stage 1 - Scope"),
+                ui.p("UNESCO Principle 10: fairness, non-discrimination, and gender-responsive ethical impact assessment.", class_="text-muted"),
                 ui.div(GENDER_EQUITY_PRINCIPLE, class_="alert alert-info"),
                 ui.input_text_area("scope_purpose", "Intended purpose", placeholder="Example: support MSRH triage and referral; not autonomous diagnosis.", width="100%"),
                 ui.input_text_area("scope_beneficiaries", "Intended beneficiaries and affected communities", width="100%"),
                 ui.input_text_area("scope_prohibited", "Prohibited uses and high-risk decisions", width="100%"),
                 ui.input_text_area("scope_risks", "Gender and intersectional risks identified", width="100%"),
-                ui.input_checkbox("scope_human", "A qualified human retains final determination for high-impact or life-affecting decisions."),
-                ui.input_checkbox("scope_gia", "A gender-responsive ethical impact assessment has been completed."),
-                ui.input_checkbox("scope_community", "Affected women, girls, and gender-diverse communities participated in design or review."),
-                ui.input_action_button("save_stage1", "Save Stage 1 evidence", class_="btn-primary"),
+                ui.input_checkbox("scope_human", "A qualified human retains final determination for high-impact or life-affecting decisions.", width="100%"),
+                ui.input_checkbox("scope_gia", "A gender-responsive ethical impact assessment has been completed.", width="100%"),
+                ui.input_checkbox("scope_community", "Affected women, girls, and gender-diverse communities participated in design or review.", width="100%"),
+                ui.input_action_button("save_stage1", "Save Stage 1 evidence", class_="btn-primary mt-2"),
                 ui.output_ui("stage1_status"),
                 class_="mt-3",
             ),
@@ -546,7 +541,7 @@ app_ui = ui.page_fixed(
             "2. Data",
             ui.card(
                 ui.card_header("Stage 2 - Data Representation, Participation, and Provenance"),
-                ui.p("Evaluate subgroup representation, response completeness, safety-netting, and data provenance.", class_="text-muted"),
+                ui.p("UNESCO inclusion and gender requirements plus AIF360-inspired dataset-level diagnostics.", class_="text-muted"),
                 ui.output_ui("stage2_content"),
                 class_="mt-3",
             ),
@@ -555,7 +550,7 @@ app_ui = ui.page_fixed(
             "3. Fairness",
             ui.card(
                 ui.card_header("Stage 3 - Model Fairness Measurement"),
-                ui.p("Disaggregated subgroup metrics and group parity screening.", class_="text-muted"),
+                ui.p("Fairlearn-inspired MetricFrame and AIF360-inspired group fairness metrics.", class_="text-muted"),
                 ui.output_ui("stage3_content"),
                 class_="mt-3",
             ),
@@ -564,7 +559,7 @@ app_ui = ui.page_fixed(
             "4. Mitigation",
             ui.card(
                 ui.card_header("Stage 4 - Mitigation, Retesting, and Trade-offs"),
-                ui.p("Compare mitigation variants and review accuracy vs. fairness trade-offs.", class_="text-muted"),
+                ui.p("AIF360-inspired pre/in/post-processing comparison with Fairlearn-style utility/fairness trade-off review.", class_="text-muted"),
                 ui.output_ui("stage4_content"),
                 class_="mt-3",
             ),
@@ -573,7 +568,7 @@ app_ui = ui.page_fixed(
             "5. Output Equity",
             ui.card(
                 ui.card_header("Stage 5 - Output Equity, Counterfactuals, and Clinical Safety"),
-                ui.p("Test whether pronoun swaps alter triage decisions and verify clinical safety safeguards.", class_="text-muted"),
+                ui.p("UNESCO harm prevention and remedy lens; pronoun-only testing is one diagnostic, not a certification.", class_="text-muted"),
                 ui.output_ui("stage5_content"),
                 class_="mt-3",
             ),
@@ -582,7 +577,7 @@ app_ui = ui.page_fixed(
             "6. Governance",
             ui.card(
                 ui.card_header("Stage 6 - Governance, Remedy, and Continuous Monitoring"),
-                ui.p("Document human oversight, complaint mechanisms, and ongoing equity monitoring.", class_="text-muted"),
+                ui.p("UNESCO requires effective remedy against discriminatory or biased algorithmic outcomes.", class_="text-muted"),
                 ui.input_checkbox_group("gov_checks", "Governance, remedy, and monitoring controls:", choices=GOVERNANCE_ITEMS, width="100%"),
                 ui.input_action_button("save_stage6", "Save governance evidence", class_="btn-primary"),
                 ui.output_ui("stage6_status"),
@@ -603,9 +598,13 @@ app_ui = ui.page_fixed(
     partners_section_ui(),
     ui.div(
         ui.p(
+            "Framework references: UNESCO Recommendation on the Ethics of Artificial Intelligence, Principle 10 and gender policy area; Fairlearn assessment and mitigation concepts; IBM AI Fairness 360 metric and mitigation concepts.",
+            class_="text-muted small text-center mt-3 mb-1",
+        ),
+        ui.p(
             "HASH Project • Academy for Health Innovation in Uganda • ",
             ui.a("hash.theacademy.co.ug", href="https://hash.theacademy.co.ug/", target="_blank"),
-            class_="text-muted small text-center my-3",
+            class_="text-muted small text-center mb-3",
         ),
     ),
 )
@@ -636,9 +635,29 @@ def server(input, output, session):
             mitigation_results.set(None)
             output_results.set(None)
 
+    @render.ui
+    def sample_data_buttons_ui():
+        has_data = raw_df_val.get() is not None
+        return ui.div(
+            ui.input_action_button("load_demo", "Load Sample Demo Dataset", class_="btn-primary", disabled=has_data),
+            ui.input_action_button("clear_demo", "Clear Dataset", class_="btn-outline-secondary", disabled=not has_data),
+            class_="d-flex flex-wrap gap-2",
+        )
+
+    @render.ui
+    def overview_actions_ui():
+        has_data = raw_df_val.get() is not None
+        return ui.div(
+            ui.input_action_button("start_audit", "Start Audit (Go to Stage 1)", class_="btn-primary me-2"),
+            ui.input_action_button("load_demo_overview", "Load Sample Demo & Start", class_="btn-outline-primary", disabled=has_data),
+            class_="mt-3",
+        )
+
     @reactive.effect
     @reactive.event(input.load_demo)
     def _on_load_demo():
+        if raw_df_val.get() is not None:
+            return
         default_path = "test_patient_data.csv"
         if os.path.exists(default_path):
             raw_df_val.set(pd.read_csv(default_path))
@@ -656,14 +675,15 @@ def server(input, output, session):
     @reactive.effect
     @reactive.event(input.load_demo_overview)
     def _on_load_demo_overview():
-        default_path = "test_patient_data.csv"
-        if os.path.exists(default_path):
-            raw_df_val.set(pd.read_csv(default_path))
-            demo_mode.set(True)
-            data_results.set(None)
-            model_results.set(None)
-            mitigation_results.set(None)
-            output_results.set(None)
+        if raw_df_val.get() is None:
+            default_path = "test_patient_data.csv"
+            if os.path.exists(default_path):
+                raw_df_val.set(pd.read_csv(default_path))
+                demo_mode.set(True)
+                data_results.set(None)
+                model_results.set(None)
+                mitigation_results.set(None)
+                output_results.set(None)
         ui.update_navs("main_tabs", selected="1. Scope")
 
     @reactive.effect
@@ -756,9 +776,12 @@ def server(input, output, session):
                 "community participation": ev.get("community"),
             }.items() if not val
         ]
+        alerts = [ui.div("Stage 1 evidence saved.", class_="alert alert-success mt-3 mb-2")]
         if missing:
-            return ui.div("Scope evidence incomplete: " + ", ".join(missing), class_="alert alert-warning mt-3 mb-0")
-        return ui.div("Stage 1 evidence is complete for review.", class_="alert alert-success mt-3 mb-0")
+            alerts.append(ui.div("UNESCO scope evidence incomplete: " + ", ".join(missing), class_="alert alert-warning mb-0"))
+        else:
+            alerts.append(ui.div("UNESCO scope evidence complete for review.", class_="alert alert-info mb-0"))
+        return ui.div(*alerts)
 
     # --- Stage 2 ---
     @render.ui
@@ -782,20 +805,20 @@ def server(input, output, session):
             ui.HTML(rep.to_html(classes="table table-sm table-striped table-hover align-middle", index=False)),
             ui.p("Small groups are not evidence of fairness. They are evidence of limited measurement power.", class_="text-muted small"),
             ui.div(
-                ui.tags.strong("Response-completeness diagnostic: "),
+                ui.tags.strong("AIF360-inspired response-completeness diagnostic: "),
                 f"chi2 = {gap['chi2']}, p = {gap['p_value']} - ",
                 ui.tags.strong(gap["status"]),
                 class_="alert alert-light border",
             ),
             ui.tags.details(
-                ui.tags.summary("Data, participation, and provenance checklist", class_="fw-semibold mb-2"),
+                ui.tags.summary("UNESCO data, participation, and provenance checklist", class_="fw-semibold mb-2"),
                 ui.input_checkbox_group("data_checks", None, choices=DATA_PROVENANCE_ITEMS, width="100%"),
-                ui.input_action_button("save_stage2_ev", "Save Stage 2 checklist", class_="btn-primary btn-sm mt-1"),
-                ui.div(f"Saved {sum(ev.values())}/{len(DATA_PROVENANCE_ITEMS)} items.", class_="text-success small mt-2") if ev else None,
+                ui.input_action_button("save_stage2_ev", "Save Stage 2 evidence", class_="btn-primary btn-sm mt-1"),
+                ui.div(f"Stage 2 evidence saved ({sum(ev.values())}/{len(DATA_PROVENANCE_ITEMS)} items).", class_="alert alert-success py-2 mt-2 mb-0") if ev else None,
             ),
             ui.div(
                 ui.input_action_button("save_data_snapshot", "Save data audit snapshot", class_="btn-primary mt-3"),
-                ui.span(" Snapshot saved for Stage 7.", class_="text-success fw-semibold ms-2") if saved_snap is not None else None,
+                ui.div("Data audit snapshot saved.", class_="alert alert-success py-2 mt-2 mb-0") if saved_snap is not None else None,
             ),
         )
 
@@ -825,17 +848,28 @@ def server(input, output, session):
 
         blocks = [
             ui.input_select("model_outcome", "Validated binary outcome column (optional)", choices=outcome_options, selected=selected_outcome),
-            ui.input_action_button("run_model", "Run baseline measurement", class_="btn-primary mb-3"),
+            ui.input_action_button("run_model", "Run baseline Fairlearn / AIF360-inspired measurement", class_="btn-primary mb-3"),
         ]
         if res is not None:
             metric_tbl = render_metric_table(res["summary"])
             blocks.extend([
                 ui.h5("Disaggregated performance"),
                 ui.HTML(res["group_metrics"].round(4).to_html(classes="table table-sm table-striped align-middle", index=False)),
-                ui.h5("Fairness metric summary", class_="mt-3"),
+                ui.h5("Fairness metric dashboard", class_="mt-3"),
                 ui.HTML(metric_tbl.to_html(classes="table table-sm table-bordered align-middle", index=False)),
+                ui.tags.details(
+                    ui.tags.summary("IBM AIF360 & Fairlearn Fairness Metric Definitions", class_="fw-semibold mt-2 mb-2"),
+                    ui.tags.ul(
+                        ui.tags.li(ui.strong("Demographic parity difference (Fairlearn / AIF360 Statistical Parity Difference): "), "Difference between the highest and lowest positive selection rates across gender groups (ideal = 0; screening threshold <= 0.10)."),
+                        ui.tags.li(ui.strong("Disparate impact ratio (AIF360 Disparate Impact): "), "Ratio of the lowest to highest group selection rate (four-fifths rule screening threshold >= 0.80)."),
+                        ui.tags.li(ui.strong("Equal opportunity difference (Fairlearn / AIF360): "), "Difference in true-positive rate (recall) between groups (ideal = 0; screening threshold <= 0.10)."),
+                        ui.tags.li(ui.strong("Average odds difference (AIF360): "), "Mean of the absolute differences in false-positive rate and true-positive rate across groups (screening threshold <= 0.10)."),
+                        ui.tags.li(ui.strong("False-negative-rate gap (MSRH clinical safety): "), "Difference in missed urgent/positive cases across gender groups (screening threshold <= 0.10)."),
+                        class_="small text-muted mb-2",
+                    ),
+                ),
                 ui.div(
-                    "These screening metrics require validated labels, model predictions, subgroup counts, and uncertainty analysis before clinical use.",
+                    "These are transparent local approximations of Fairlearn/AIF360 measures. They require validated labels, model predictions, subgroup counts, and uncertainty analysis before clinical use.",
                     class_="alert alert-info mt-2",
                 ),
             ])
@@ -968,7 +1002,10 @@ def server(input, output, session):
         gov = governance_evidence.get()
         count = sum(gov.values()) if gov else 0
         pct = int((count / len(GOVERNANCE_ITEMS)) * 100)
-        return ui.div(
+        blocks = []
+        if gov:
+            blocks.append(ui.div("Stage 6 evidence saved.", class_="alert alert-success mt-3 mb-2"))
+        blocks.extend([
             ui.div(
                 ui.div(
                     class_="progress-bar",
@@ -979,7 +1016,8 @@ def server(input, output, session):
                 class_="progress mt-3",
             ),
             ui.p(f"Governance evidence: {count}/{len(GOVERNANCE_ITEMS)} controls documented.", class_="mt-2 fw-semibold"),
-        )
+        ])
+        return ui.div(*blocks)
 
     # --- Stage 7 ---
     def compute_blockers():
