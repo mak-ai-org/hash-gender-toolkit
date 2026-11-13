@@ -36,7 +36,7 @@ HASH_PARTNERS = [
     {
         "name": "Infectious Diseases Institute (IDI)",
         "url": "https://idi.mak.ac.ug/",
-        "logo": "https://hash.theacademy.co.ug/wp-content/themes/openstrap/images/IDI.jpg",
+        "logo": "https://idi.mak.ac.ug/wp-content/uploads/2024/09/IDI-MAK-Logo.png",
     },
 ]
 
