@@ -1035,7 +1035,7 @@ def server(input, output, session):
         mit_saved = mitigation_results.get()
         if not mit_saved:
             return None
-        return ui.div(f"Saved mitigation review for '{mit_saved['selected']}'. This does not approve deployment.", class_="alert alert-success mt-2 mb-0")
+        return ui.div("Mitigation review saved. This does not approve deployment.", class_="alert alert-success mt-2 mb-0")
 
     @render.data_frame
     def stage4_table():
