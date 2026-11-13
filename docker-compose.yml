@@ -13,6 +13,8 @@ services:
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
       - STREAMLIT_SERVER_HEADLESS=true
       - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - STREAMLIT_SERVER_ENABLE_CORS=false
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
       interval: 30s
@@ -20,3 +22,18 @@ services:
       retries: 3
       start_period: 5s
 
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: hash-gender-toolkit-ngrok
+    restart: unless-stopped
+    depends_on:
+      hash-gender-toolkit:
+        condition: service_healthy
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command:
+      - "http"
+      - "http://hash-gender-toolkit:8501"
+      - "--url=https://jointly-big-marlin.ngrok-free.app"
+    ports:
+      - "4040:4040"
